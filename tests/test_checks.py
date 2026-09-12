@@ -105,6 +105,39 @@ class ErrorTests(SpecCase):
         self.assertCode(f, "discharge-on-non-assumption", "error", count=1)
 
 
+class ProfileOverrideTests(SpecCase):
+    PROFILE = (
+        "name: custom\n"
+        "per-level-kinds:\n  V: verification\n"
+        "levels:\n"
+        "  - n: 0\n    name: purpose\n    kinds:\n      G: goal\n      R: requirement\n      H: hazard\n"
+        "  - n: 1\n    name: principles\n    kinds:\n      P: principle\n      LAW: design law\n      N: never rule\n"
+        "  - n: 2\n    name: design\n    kinds:\n      D: design element\n"
+    )
+
+    def test_profile_yaml_in_spec_root_overrides(self):
+        root = self.make({
+            "profile.yaml": self.PROFILE,
+            "L0-purpose.md": "## G1 — One\n## R3 — Req\nserves: G1\n## H1 — Hazard\n",
+            "L1-principles.md": "## LAW16 — The band keeps itself\nserves: G1\n## N2 — Never nag\nserves: G1\n## P1 — P\nserves: G1\n",
+            "L2-design.md": "## D1 — D\nserves: LAW16\n\nSee [[N2]] and [[serves P1]].\n## L2-V1 — guard\nverifies: LAW16\n",
+        })
+        spec, f = self.check(root)
+        self.assertNoErrors(f)
+        self.assertEqual(spec.profile.name, "custom")
+        self.assertEqual(spec.items["LAW16"].kind, "LAW")
+        self.assertEqual(spec.items["LAW16"].level, 1)
+        self.assertEqual([l.target for l in spec.items["D1"].links_of("serves")], ["LAW16", "P1"])
+        self.assertNoCode(f, "unknown-kind")
+        self.assertNoCode(f, "kind-at-wrong-level")
+        self.assertNoCode(f, "sections-absent")   # the custom profile declares no sections
+
+    def test_reserved_and_wrong_level_with_override(self):
+        root = self.make({"profile.yaml": self.PROFILE, "L0-purpose.md": "## LAW1 — law at L0\n## P1 — p at L0\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "kind-at-wrong-level", "error", count=2)
+
+
 class ReportTests(SpecCase):
     def test_clean_spec_has_no_errors(self):
         root = self.make({
