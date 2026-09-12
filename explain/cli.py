@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .checks import downstream, export_index, externals, inbound, run_checks, upstream
-from .parse import DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, split_qid
+from .checks import accept, downstream, export_index, externals, inbound, run_checks, suspects, upstream
+from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
 
 
 def _spec(path):
@@ -72,7 +72,7 @@ def cmd_show(args):
         print(note)
     desc = spec.profile.kind_description(it.kind) or "?"
     print(f"{it.id} — {it.title}")
-    print(f"  {desc} at L{it.level} ({spec.levels[it.level].name}); {it.file}:{it.line}")
+    print(f"  {desc} at L{it.level} ({spec.levels[it.level].name}); {it.file}:{it.line}; fingerprint {spec.fingerprint(it.id)}")
     if it.parent_id:
         print(f"  refines: {it.parent_id}")
     for k, v in it.header.items():
@@ -240,6 +240,67 @@ def cmd_assumptions(args):
     return 0
 
 
+def _split_targets_and_path(targets):
+    """For commands taking ids then an optional path: the last token is the path if it is a directory."""
+    targets = list(targets)
+    if targets and Path(targets[-1]).is_dir():
+        return targets[:-1], targets[-1]
+    return targets, "."
+
+
+def cmd_accept(args):
+    ids, path = _split_targets_and_path(args.targets)
+    spec = _spec(path)
+    if spec is None:
+        return 2
+    if not ids and not args.all:
+        print("error: give item ids to accept, or --all", file=sys.stderr)
+        return 2
+    wanted = None
+    if ids:
+        wanted = set()
+        for raw in ids:
+            it, note = _find(spec, raw)
+            if it is None:
+                print(f"error: {note}", file=sys.stderr)
+                return 1
+            wanted.add(it.id)
+    ext = externals(spec)
+    new, updated, unchanged, unresolved = accept(spec, ext, wanted)
+    save_accepted(spec.root, spec.accepted)
+    print(f"accepted {new + updated + unchanged} link(s): {new} new, {updated} re-accepted after a change, {unchanged} unchanged"
+          + (f"; {unresolved} skipped (target unresolvable)" if unresolved else "")
+          + f"\nwrote {ACCEPTED_FILE}")
+    return 0
+
+
+def cmd_drift(args):
+    spec = _spec(args.path)
+    if spec is None:
+        return 2
+    ext = externals(spec)
+    rows = suspects(spec, ext)
+    tracked = len(spec.accepted)
+    if not rows:
+        print(f"no drift: {tracked} accepted link(s) all point at unchanged targets"
+              + ("" if tracked else f" (nothing is tracked yet; `explain accept --all` to start)"))
+        return 1
+    by_target = {}
+    for it, link, old, cur in rows:
+        by_target.setdefault((link.target, old, cur), []).append((it, link))
+    for (target, old, cur), deps in sorted(by_target.items()):
+        title = ""
+        q = split_qid(target)
+        if q and q[0] in (None, spec.name) and q[1] in spec.items:
+            title = " — " + spec.items[q[1]].title
+        print(f"{target}{title} changed (accepted {old}, now {cur}). Re-read:")
+        for it, link in sorted(deps, key=lambda d: _idkey(d[0].id)):
+            print(f"    {it.id:10} {it.title}  ({link.relation}; {link.file}:{link.line})")
+        print(f"  then: explain accept {' '.join(sorted({it.id for it, _ in deps}, key=_idkey))}")
+    print(f"{len(rows)} suspect link(s) across {len(by_target)} changed target(s); {tracked} accepted in total")
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="explain", description="Query and check a means-ends design spec.")
     p.add_argument("--version", action="version", version=f"explain {__version__}")
@@ -265,10 +326,15 @@ def build_parser():
     s = add("export", cmd_export, "the spec's index JSON for other specs to cite")
     s.add_argument("-o", "--output", help="write to this file instead of stdout")
     add("assumptions", cmd_assumptions, "every assumption, what discharges it, who assumes it")
+    s = sub.add_parser("accept", help="record that the links from ID... (or --all) were read against their targets as they are now")
+    s.add_argument("targets", nargs="*", help="item ids, optionally followed by the spec directory")
+    s.add_argument("--all", action="store_true", help="every link in the spec")
+    s.set_defaults(fn=cmd_accept)
+    add("drift", cmd_drift, "accepted links whose targets changed since: what to re-read")
     return p
 
 
-COMMANDS = ("check", "show", "serves", "why", "orphans", "outline", "export", "assumptions")
+COMMANDS = ("check", "show", "serves", "why", "orphans", "outline", "export", "assumptions", "accept", "drift")
 
 
 def main(argv=None):

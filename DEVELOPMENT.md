@@ -45,6 +45,9 @@ python3 -m explain orphans examples/cas
 python3 -m explain outline examples/cas           # levels, files, items, sections not yet present
 python3 -m explain export -o cas.index.json examples/cas
 python3 -m explain assumptions examples/cas
+python3 -m explain accept --all examples/cas      # start tracking drift: record every link's target fingerprint
+python3 -m explain accept P2 examples/cas         # after re-reading P2 against its changed targets
+python3 -m explain drift examples/cas             # accepted links whose targets changed; what to re-read
 python3 -m explain --patterns                     # every regex and every declared miss
 ```
 

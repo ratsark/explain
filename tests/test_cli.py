@@ -77,6 +77,27 @@ class CliTests(SpecCase):
         self.assertIn("P2", out)
         self.assertIn("1 orphans", out)
 
+    def test_accept_and_drift(self):
+        root = self.spec()
+        code, out, err = self.run_cli("accept", str(root))
+        self.assertEqual(code, 2)
+        code, out, _ = self.run_cli("accept", "--all", str(root))
+        self.assertEqual(code, 0)
+        self.assertIn("2 new", out)
+        code, out, _ = self.run_cli("drift", str(root))
+        self.assertEqual(code, 1)
+        self.assertIn("no drift", out)
+        (root / "L0-purpose.md").write_text("## Mission\n## Goals\n## G1 — One\nstatus: adopted\n\nBody of one, changed.\n## A1 — Ass\n", encoding="utf-8")
+        code, out, _ = self.run_cli("drift", str(root))
+        self.assertEqual(code, 0)
+        self.assertIn("G1 — One changed", out)
+        self.assertIn("explain accept P1", out)
+        code, out, _ = self.run_cli("accept", "P1", str(root))
+        self.assertEqual(code, 0)
+        self.assertIn("1 re-accepted", out)
+        code, out, _ = self.run_cli("drift", str(root))
+        self.assertEqual(code, 1)
+
     def test_outline_export_assumptions_patterns(self):
         root = self.spec()
         code, out, _ = self.run_cli("outline", str(root))

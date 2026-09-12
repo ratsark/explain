@@ -5,6 +5,7 @@ THE MATCHERS. Every regex the tool uses is declared here and printed by
 one of these, it is prose.
 """
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -72,6 +73,8 @@ DECLARED_MISSES = [
     "Bullet items are only recognised with -, * or + markers; numbered lists are prose.",
     "Sections are matched by heading text against the profile's section titles, case-insensitively, at the top level of the section tree only.",
     "Cross-spec targets are resolved through a parent's 'path' or 'index'; a namespace with neither is reported as unresolvable, not checked.",
+    "A fingerprint covers an item's title and body and its refinements' (dotted sub-items), not its header fields: a status change never makes dependants suspect, and a change to a linked-to item's own links does not either.",
+    "Drift is only detected for links that have been accepted (accepted-links.txt); links never accepted are counted, not checked.",
 ]
 
 
@@ -163,10 +166,28 @@ class Spec:
     items: dict          # id -> Item
     findings: list       # parse-time findings
     sections: dict       # n -> [(title, file, line, depth)]
+    accepted: dict = field(default_factory=dict)   # (from, relation, to) -> fingerprint
 
     @property
     def name(self):
         return self.manifest.get("name")
+
+    def fingerprint(self, item_id):
+        """A short hash of an item's title and body, and of its refinements'.
+
+        Header fields are not included: a status change does not make the
+        items that depend on this one suspect; a wording change does.
+        """
+        parts = []
+        stack = [item_id]
+        while stack:
+            iid = stack.pop()
+            it = self.items.get(iid)
+            if it is None:
+                continue
+            parts.append(iid + "\n" + _norm_text(it.title) + "\n" + _norm_text(it.body))
+            stack.extend(sorted(k.id for k in self.items.values() if k.parent_id == iid))
+        return hashlib.sha256("\n\n".join(sorted(parts)).encode("utf-8")).hexdigest()[:10]
 
     def canonical_id(self, text):
         """Normalise an id as written to its canonical form, or None."""
@@ -174,6 +195,42 @@ class Spec:
         if not m:
             return None
         return make_id(m.group(1), m.group(2), m.group(3), m.group(4))
+
+
+def _norm_text(s):
+    return " ".join((s or "").split())
+
+
+ACCEPTED_FILE = "accepted-links.txt"
+ACCEPTED_LINE_RE = re.compile(r"^(\S+)[ \t]+([a-z-]+)[ \t]+(\S+)[ \t]+([0-9a-f]{6,64})[ \t]*$")
+
+
+def load_accepted(root, findings):
+    """spec/accepted-links.txt: one line per accepted link, 'FROM RELATION TO FINGERPRINT'."""
+    path = root / ACCEPTED_FILE
+    out = {}
+    if not path.is_file():
+        return out
+    for n, raw in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = ACCEPTED_LINE_RE.match(line)
+        if not m:
+            findings.append(Finding("error", "bad-accepted-line",
+                                    f"{ACCEPTED_FILE}: expected 'FROM RELATION TO FINGERPRINT', got {line!r}", Path(ACCEPTED_FILE), n))
+            continue
+        out[(m.group(1), m.group(2), m.group(3))] = m.group(4)
+    return out
+
+
+def save_accepted(root, accepted):
+    lines = ["# Accepted links: FROM RELATION TO FINGERPRINT-OF-TO. Machine-written by `explain accept`.",
+             "# A link whose target's fingerprint has changed since acceptance is reported as suspect",
+             "# by `explain check` and listed by `explain drift`. Re-read the FROM item, then accept again."]
+    for (a, rel, b), fp in sorted(accepted.items()):
+        lines.append(f"{a} {rel} {b} {fp}")
+    (root / ACCEPTED_FILE).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def make_id(prefix_level, kind, number, refinement):
@@ -440,7 +497,8 @@ def parse_spec(root, load_external=True):
                     continue
                 items[item.id] = item
             sections[n].extend(fp.sections)
-    return Spec(root, manifest, profile, levels, items, findings, sections)
+    accepted = load_accepted(root, findings)
+    return Spec(root, manifest, profile, levels, items, findings, sections, accepted)
 
 
 def patterns_text():

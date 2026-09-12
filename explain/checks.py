@@ -12,15 +12,35 @@ from .parse import DOWNSTREAM_RELATIONS, Finding, RELATIONS, parse_spec, split_q
 class External:
     """A parent or child spec, resolved through a path or an index file."""
 
-    def __init__(self, name, how, ids, error=None):
+    def __init__(self, name, how, ids, error=None, stale=None):
         self.name = name
         self.how = how          # "path" | "index" | None
-        self.ids = ids          # {id: {"level":..,"kind":..,"title":..}} or None
+        self.ids = ids          # {id: {"level":..,"kind":..,"title":..,"fingerprint":..}} or None
         self.error = error
+        self.stale = stale      # ids whose index fingerprint differs from the live spec, when both are given
+
+
+def _ids_of(other):
+    return {i.id: {"level": i.level, "kind": i.kind, "title": i.title, "fingerprint": other.fingerprint(i.id)}
+            for i in other.items.values()}
+
+
+def _load_index(spec, name, rel):
+    p = (spec.root / str(rel)).resolve()
+    if not p.is_file():
+        return None, f"{rel}: index file not found"
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        if data.get("name") != name:
+            return None, f"{rel}: that index is for {data.get('name')!r}, not {name!r}"
+        return data["items"], None
+    except (ValueError, KeyError) as e:
+        return None, f"{rel}: not a valid index ({e})"
 
 
 def resolve_external(spec, name, conf):
     conf = conf or {}
+    live = None
     if conf.get("path"):
         p = (spec.root / str(conf["path"])).resolve()
         if not (p / "spec.yaml").is_file():
@@ -29,21 +49,82 @@ def resolve_external(spec, name, conf):
         if other.name and other.name != name:
             return External(name, "path", None,
                             f"{conf['path']}: that spec calls itself {other.name!r}, not {name!r}")
-        ids = {i.id: {"level": i.level, "kind": i.kind, "title": i.title} for i in other.items.values()}
-        return External(name, "path", ids)
+        live = _ids_of(other)
     if conf.get("index"):
-        p = (spec.root / str(conf["index"])).resolve()
-        if not p.is_file():
-            return External(name, "index", None, f"{conf['index']}: index file not found")
-        try:
-            data = json.loads(p.read_text(encoding="utf-8"))
-            if data.get("name") != name:
-                return External(name, "index", None,
-                                f"{conf['index']}: that index is for {data.get('name')!r}, not {name!r}")
-            return External(name, "index", data["items"])
-        except (ValueError, KeyError) as e:
-            return External(name, "index", None, f"{conf['index']}: not a valid index ({e})")
+        idx, err = _load_index(spec, name, conf["index"])
+        if idx is None:
+            if live is not None:
+                return External(name, "path", live, stale=None)
+            return External(name, "index", None, err)
+        if live is not None:
+            stale = sorted(i for i, v in idx.items() if i in live and v.get("fingerprint") and v["fingerprint"] != live[i]["fingerprint"])
+            stale += sorted(i for i in live if i not in idx)
+            return External(name, "path", live, stale=stale)
+        return External(name, "index", idx)
+    if live is not None:
+        return External(name, "path", live)
     return External(name, None, None, "declared with neither path nor index")
+
+
+def link_key(item, link):
+    """The identity of a link for the accepted-links store: (from, relation, to-as-canonical)."""
+    q = split_qid(link.target)
+    to = link.target if q is None else (f"{q[0]}:{q[1]}" if q[0] else q[1])
+    return (item.id, link.relation, to)
+
+
+def target_fingerprint(spec, ext, link):
+    """Current fingerprint of a link's target, or None if it cannot be resolved."""
+    q = split_qid(link.target)
+    if q is None:
+        return None
+    ns, tid = q
+    if ns is None or ns == spec.name:
+        return spec.fingerprint(tid) if tid in spec.items else None
+    e = ext.get(ns)
+    if e is None or e.ids is None or tid not in e.ids:
+        return None
+    return e.ids[tid].get("fingerprint")
+
+
+def suspects(spec, ext):
+    """[(item, link, accepted_fp, current_fp)] for accepted links whose target changed."""
+    out = []
+    for it in spec.items.values():
+        for link in it.links:
+            key = link_key(it, link)
+            if key not in spec.accepted:
+                continue
+            cur = target_fingerprint(spec, ext, link)
+            if cur is not None and cur != spec.accepted[key]:
+                out.append((it, link, spec.accepted[key], cur))
+    return out
+
+
+def accept(spec, ext, item_ids=None):
+    """Record the current target fingerprint for every link from the given items (or all).
+
+    Returns (new, updated, unchanged, unresolved) counts. Does not write; the caller saves.
+    """
+    new = updated = unchanged = unresolved = 0
+    for it in spec.items.values():
+        if item_ids is not None and it.id not in item_ids:
+            continue
+        for link in it.links:
+            cur = target_fingerprint(spec, ext, link)
+            if cur is None:
+                unresolved += 1
+                continue
+            key = link_key(it, link)
+            old = spec.accepted.get(key)
+            if old is None:
+                new += 1
+            elif old != cur:
+                updated += 1
+            else:
+                unchanged += 1
+            spec.accepted[key] = cur
+    return new, updated, unchanged, unresolved
 
 
 def externals(spec):
@@ -58,9 +139,7 @@ def externals(spec):
                 other = parse_spec(p)
                 child_name = other.name or child_name
                 if child_name:
-                    out[child_name] = External(child_name, "path",
-                                               {i.id: {"level": i.level, "kind": i.kind, "title": i.title}
-                                                for i in other.items.values()})
+                    out[child_name] = External(child_name, "path", _ids_of(other))
                     continue
             out[child_name or str(conf["path"])] = External(child_name, "path", None, f"{conf['path']}: no spec.yaml there")
     return out
@@ -77,6 +156,10 @@ def run_checks(spec, ext=None):
         if e.error:
             f.append(Finding("report", "unresolvable-namespace",
                              f"spec {name!r}: {e.error}; its ids cannot be checked", Path("spec.yaml")))
+        elif e.stale:
+            f.append(Finding("report", "index-stale",
+                             f"spec {name!r}: the committed index snapshot differs from the live spec for {len(e.stale)} item(s) "
+                             f"({', '.join(e.stale[:6])}{', ...' if len(e.stale) > 6 else ''}); re-export it", Path("spec.yaml")))
 
     # --- ids and kinds ------------------------------------------------------
     for it in items.values():
@@ -185,6 +268,18 @@ def run_checks(spec, ext=None):
         for ref in it.header.get("refs", []) or []:
             if not (refs_root / str(ref)).exists():
                 f.append(Finding("report", "missing-ref", f"{it.id}: refs: {ref} does not exist under {refs_root}", it.file, it.line))
+
+    # --- drift ---------------------------------------------------------------
+    for it, link, old, cur in suspects(spec, ext):
+        f.append(Finding("report", "suspect-link",
+                         f"{it.id} {link.relation} {link.target}, but {link.target} changed since this link was accepted "
+                         f"(was {old}, now {cur}): re-read {it.id}, then `explain accept {it.id}`", link.file, link.line))
+    untracked = sum(1 for it in items.values() for l in it.links
+                    if link_key(it, l) not in spec.accepted and target_fingerprint(spec, ext, l) is not None)
+    if untracked:
+        f.append(Finding("report", "untracked-links",
+                         f"{untracked} link(s) have never been accepted, so drift in their targets is not detected; "
+                         f"`explain accept --all` after reading them", Path("accepted-links.txt")))
 
     # --- completeness ----------------------------------------------------------
     top = min(profile.level_numbers())
@@ -295,7 +390,7 @@ def export_index(spec):
         "profile": spec.profile.name,
         "items": {
             i.id: {"level": i.level, "kind": i.kind, "title": i.title, "status": i.status,
-                   "file": str(i.file), "line": i.line}
+                   "file": str(i.file), "line": i.line, "fingerprint": spec.fingerprint(i.id)}
             for i in sorted(spec.items.values(), key=lambda x: (x.level, x.file, x.line))
         },
         "links": [

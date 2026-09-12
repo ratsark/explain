@@ -60,18 +60,40 @@ README.md, pinned issue #1 as the landing spot); this side watches the issue
 list and replies on the issue. Titles carry the project name in brackets;
 project internals stay in the project's repo.
 
-## Phase 3 — Nesting _(in progress, started 2026-09-12)_
+## Phase 3 — Drift detection and the full first-project transcription _(in progress, started 2026-09-12)_
 
-The public example is now a nested pair, `examples/aircraft` (parent) and
-`examples/cas` (child), exercising `serves: parent:ID`, `discharged-by`,
-derived child goals, and the parent citing a child item. Remaining: the
-parent's `allocations` view; index-snapshot staleness reporting; a second
-real spec nested under the first project's (its business proposition as a
-parent, or its mobile app as a child) in that project's repo.
+Reprioritised 2026-09-12 by the user: drift between layers is what has been
+holding the first project back, so landing its whole design in the format,
+with drift detection, comes before nesting.
 
-**Acceptance:** tests for every cross-spec check; `allocations` on
-`examples/aircraft` lists the child's items per parent element; a real nested
-pair links both ways in the first project's repo.
+Drift detection (ARCHITECTURE.md section 12): fingerprints, `accepted-links.txt`,
+`accept` and `drift`, suspect and untracked reports, fingerprints in exports,
+index-snapshot staleness. **Landed 2026-09-12** with tests.
+
+Full transcription: every standing design artifact of the first project
+(numbered laws, never-list, charters, doctrines, surfaces, rulings, systems,
+requirements, architecture decisions, packages, guards) as registry rows in
+its `spec/`, rows pointing at bodies, statuses as the documents state them,
+purposes recorded where the documents record them and reported as missing
+where they do not. Inventoried by four parallel surveys, assembled by hand,
+reviewed by the project's agents area by area through their issue tracker.
+
+**Acceptance:** the project's spec checks with zero errors; every artifact its
+agents cite by number or name has a row; the corpus check still passes;
+`accept --all` bootstrapped so the next wording change anywhere in L0 or L1
+is reported as suspect links; the project's agents have reviewed their areas.
+
+## Phase 3b — Nesting _(deferred)_
+
+The public example is a nested pair, `examples/aircraft` and `examples/cas`,
+exercising `serves: parent:ID`, `discharged-by`, derived child goals, the
+parent citing a child item, and index-snapshot staleness. Remaining: the
+parent's `allocations` view; a real nested pair (the first project's business
+proposition as its parent, which is also the first non-software profile),
+when the user has time to author it.
+
+**Acceptance:** `allocations` on `examples/aircraft` lists the child's items
+per parent element; a real nested pair links both ways.
 
 ## Phase 4 — Review flow, profiles, handover _(not started)_
 

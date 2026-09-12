@@ -327,6 +327,8 @@ Commands, v0:
 | `explain export` | The spec's index JSON for other specs to cite. |
 | `explain allocations` | Parent view: per item, the child items that serve it. |
 | `explain assumptions` | Every `A` item and what discharges it. |
+| `explain accept ID... \| --all` | Record that the links from these items were read against their targets as they are now (section 12). |
+| `explain drift` | Accepted links whose targets changed since: what to re-read, grouped by changed target. |
 
 Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
 
@@ -335,7 +337,7 @@ Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
   its level prefix, or prefix disagreeing with the path; unknown id in any
   relation; unknown spec namespace; unknown header key or inline relation name;
   malformed header line; `serves` pointing downward; a refinement (`G6.2`)
-  whose parent (`G6`) is not defined.
+  whose parent (`G6`) is not defined; a malformed line in `accepted-links.txt`.
 - **Reports** mean the graph is incomplete. They never fail `check`; they are
   the to-do list, and a goal added today is expected to have nothing under it.
   Orphan (L1+ item serving nothing, not marked derived); unserved (an item
@@ -343,16 +345,17 @@ Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
   same kind (a constraint serving a goal at L0 is fine); unresolved `[[ID]]`
   mention; undischarged assumption; `refs` path missing (an external pointer,
   not part of the graph); profile section not yet present; a declared parent
-  or child that cannot be resolved; parent index snapshot stale; `supersedes`
-  target not marked superseded. `--strict` promotes reports to errors for
-  anyone who wants a release gate.
+  or child that cannot be resolved; a committed parent index snapshot that
+  differs from the live parent; `supersedes` target not marked superseded;
+  a suspect link (its target changed since the link was accepted, section
+  12); links never accepted, as one count. `--strict` promotes reports to
+  errors for anyone who wants a release gate.
 
 `status: draft` versus `adopted`, and the manifest's `adopted-through`, let a
 reader tell an expected gap from an overdue one.
 
-Later, not v0: content fingerprints on links so a changed parent marks its
-dependants suspect (Doorstop's mechanism); HTML rendering; a `review` command
-that walks a level item by item.
+Later, not v0: HTML rendering; a `review` command that walks a level item by
+item.
 
 ## 10. Lessons from the first deployment carried into the design
 
@@ -395,3 +398,33 @@ to `L2-architecture/`; the norm that mission wording needs explicit approval
 becomes the rule that L0 items need `status: adopted` from the owner, the same
 rule at finer grain. Changing the operating norms themselves is the user's
 decision. This project will dogfood the format on itself (PLAN.md, Phase 5).
+
+## 12. Drift: fingerprints and accepted links
+
+The format cannot stop an item's wording from changing meaning while its
+links stay intact. What it can do is notice that the wording changed and name
+exactly what to re-read. This is Doorstop's mechanism, adapted.
+
+- Every item has a **fingerprint**: a short hash of its title and body and of
+  its refinements' titles and bodies. Header fields are excluded, so a status
+  change or a new link on the target never makes anything suspect; a wording
+  change always does.
+- `explain accept P5` records, for each link from P5, the current fingerprint
+  of the link's target, in `accepted-links.txt` in the spec root (one line per
+  link: `FROM RELATION TO FINGERPRINT`; machine-written, sorted, diffable, and
+  greppable). `explain accept --all` does it for every link. Accepting means
+  "I have read the source item against the target as it is now."
+- `explain check` reports a **suspect link** when an accepted link's target
+  fingerprint no longer matches: "P5 serves G9, but G9 changed since this link
+  was accepted; re-read P5, then `explain accept P5`". A report, not an error:
+  the graph is intact, a human judgement is pending.
+- `explain drift` lists the same, grouped by changed target, with the
+  `accept` command to run once the dependants have been re-read. This is the
+  re-evaluation sweep that used to be done by hand after a goal's wording
+  moved.
+- Links never accepted are counted in one report line, not checked. Drift
+  detection is opt-in per link so a fresh spec is not buried in noise.
+- Across specs, fingerprints travel in the exported index. A child that
+  resolves its parent live sees the change at once; a child that pins a
+  committed index snapshot sees it when the snapshot is refreshed, and a
+  child that has both is told when the snapshot is stale.
