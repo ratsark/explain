@@ -189,6 +189,7 @@ Header-only fields:
 | `was` | Previous ids of this item after a level move or renumber. |
 | `source` | Free text or path: where the body's authority comes from. |
 | `refs` | Paths into code, tests, docs. Checked for existence only. |
+| `aka` | Other names this item is cited by, e.g. `law 16`; unique across the spec; `show`, `why`, `serves` resolve them. Lets a legacy numbering survive as aliases when items move to the level their content has. |
 
 Inverses are never written. `served-by`, `assumed-by`, `verified-by`, and
 `depended-on-by` are computed. Hand-written bidirectional links are where every

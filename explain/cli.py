@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .checks import accept, downstream, export_index, externals, inbound, run_checks, suspects, upstream
+from .checks import accept, downstream, export_index, externals, find_alias, inbound, run_checks, suspects, upstream
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
 
 
@@ -25,12 +25,18 @@ def _find(spec, raw):
     if q is None:
         q = split_qid(raw.strip())
     if q is None:
-        return None, f"{raw!r} is not an id"
+        it = find_alias(spec, raw)
+        if it is not None:
+            return it, f"note: {raw!r} is an alias of {it.id}"
+        return None, f"{raw!r} is not an id or a known alias (aka:)"
     ns, iid = q
     if ns not in (None, spec.name):
         return None, f"{raw}: use 'show' inside spec {ns!r}"
     it = spec.items.get(iid)
     if it is None:
+        by_alias = find_alias(spec, raw)
+        if by_alias is not None:
+            return by_alias, f"note: {raw!r} is an alias of {by_alias.id}"
         # maybe an old id
         for cand in spec.items.values():
             if iid in (cand.header.get("was") or []):
@@ -406,8 +412,9 @@ COMMANDS = ("check", "show", "serves", "why", "orphans", "outline", "export", "a
 def main(argv=None):
     parser = build_parser()
     argv = list(sys.argv[1:] if argv is None else argv)
-    # `explain G2` is `explain show G2`: an id in first position selects show.
-    if argv and argv[0] not in COMMANDS and not argv[0].startswith("-") and split_qid(argv[0].upper()):
+    # `explain G2` (or `explain "law 16"`) is `explain show ...`: anything that is not a
+    # command or an option in first position selects show, which resolves ids and aliases.
+    if argv and argv[0] not in COMMANDS and not argv[0].startswith("-"):
         argv.insert(0, "show")
     args = parser.parse_args(argv)
     if args.patterns:

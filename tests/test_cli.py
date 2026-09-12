@@ -130,3 +130,24 @@ class CliTests(SpecCase):
         self.assertIn("DECLARED MISSES", out)
         code, _, _ = self.run_cli()
         self.assertEqual(code, 2)
+
+
+class AliasCliTests(SpecCase):
+    def run_cli(self, *argv):
+        import contextlib, io
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_show_by_alias(self):
+        root = self.make({"L0-purpose.md": "## G1 — One\n", "L1-principles.md": "## P1 — The band keeps itself\nserves: G1\naka: [law 16]\n"})
+        code, out, _ = self.run_cli("law 16", str(root))
+        self.assertEqual(code, 0)
+        self.assertIn("alias of P1", out)
+        self.assertIn("aka: [law 16]", out)
+        code, out, _ = self.run_cli("why", "law 16", str(root))
+        self.assertEqual(code, 0)
+        code, _, err = self.run_cli("law 99", str(root))
+        self.assertEqual(code, 1)
+        self.assertIn("not an id or a known alias", err)

@@ -9,6 +9,20 @@ from pathlib import Path
 from .parse import DOWNSTREAM_RELATIONS, Finding, RELATIONS, parse_spec, split_qid
 
 
+def norm_alias(a):
+    return " ".join(str(a).lower().split())
+
+
+def find_alias(spec, text):
+    """The item whose aka matches text (case- and whitespace-insensitive), or None."""
+    key = norm_alias(text)
+    for it in spec.items.values():
+        for a in it.header.get("aka", []) or []:
+            if norm_alias(a) == key:
+                return it
+    return None
+
+
 class External:
     """A parent or child spec, resolved through a path or an index file."""
 
@@ -189,6 +203,18 @@ def run_checks(spec, ext=None):
             for old in it.header.get(key, []) or []:
                 if not isinstance(old, str) or split_qid(old) is None:
                     f.append(Finding("error", "bad-header", f"{it.id}: was: {old!r} is not an id", it.file, it.line))
+
+    # --- aliases -------------------------------------------------------------
+    seen_aka = {}
+    for it in items.values():
+        for a in it.header.get("aka", []) or []:
+            key = norm_alias(a)
+            if key in seen_aka and seen_aka[key] is not it:
+                f.append(Finding("error", "duplicate-alias",
+                                 f"{it.id}: aka {a!r} is also an alias of {seen_aka[key].id}", it.file, it.line))
+            seen_aka[key] = it
+            if split_qid(str(a)) is not None and str(a).strip().upper() in items:
+                f.append(Finding("error", "alias-is-an-id", f"{it.id}: aka {a!r} is an existing item id", it.file, it.line))
 
     # --- links ---------------------------------------------------------------
     served_by = {}     # target id -> [item]

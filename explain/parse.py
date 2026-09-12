@@ -58,6 +58,7 @@ HEADER_FIELDS = {
     "was": "previous ids after a level move or renumber",
     "source": "where the body's authority comes from",
     "refs": "paths into code, tests, docs",
+    "aka": "other names this item is cited by (free text, e.g. 'law 16'); unique across the spec; resolvable by show/why/serves",
 }
 STATUSES = ("draft", "proposed", "adopted", "superseded", "rejected")
 
@@ -434,7 +435,7 @@ class _FileParser:
             except miniyaml.MiniYamlError as e:
                 self.findings.append(Finding("error", "bad-header", f"{item.id}: {key}: {e}", self.rel, lineno))
                 return
-            if key in ("was", "refs") and not isinstance(parsed, list):
+            if key in ("was", "refs", "aka") and not isinstance(parsed, list):
                 parsed = [parsed] if parsed is not None else []
             if key == "derived" and parsed is not True:
                 self.findings.append(Finding("error", "bad-header", f"{item.id}: derived must be 'true' or absent", self.rel, lineno))

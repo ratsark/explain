@@ -213,3 +213,18 @@ class ReportTests(SpecCase):
         hits = self.assertCode(f, "sections-absent", "report", count=1)
         self.assertNotIn("Mission", hits[0].message)
         self.assertIn("Goals", hits[0].message)
+
+
+class AliasTests(SpecCase):
+    def test_aka_resolves_and_must_be_unique(self):
+        root = self.make({
+            "L0-purpose.md": "## G1 — One\n",
+            "L1-principles.md": "## P1 — P\nserves: G1\naka: [law 16, the automaticity doctrine]\n## P2 — Q\nserves: G1\naka: Law 16\n## P3 — R\nserves: G1\naka: G1\n",
+        })
+        spec, f = self.check(root)
+        self.assertCode(f, "duplicate-alias", "error", count=1)
+        self.assertCode(f, "alias-is-an-id", "error", count=1)
+        from explain.checks import find_alias
+        self.assertEqual(find_alias(spec, "  LAW  16 ").id, "P1")
+        self.assertEqual(find_alias(spec, "The Automaticity Doctrine").id, "P1")
+        self.assertIsNone(find_alias(spec, "law 17"))
