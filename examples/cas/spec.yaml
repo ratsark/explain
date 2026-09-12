@@ -1,0 +1,7 @@
+name: cas
+title: Collision avoidance system (illustrative child spec)
+profile: software
+adopted-through: L1
+parents:
+  aircraft:
+    path: ../aircraft # resolve live; a committed index snapshot would also do

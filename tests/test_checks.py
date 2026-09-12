@@ -1,0 +1,182 @@
+"""One test per error and report code (ARCHITECTURE.md section 9)."""
+
+from tests.helpers import SpecCase
+
+L0 = "## G1 — One\n## G2 — Two\n## A1 — Ass\n## C1 — Con\n"
+
+
+class ErrorTests(SpecCase):
+    def test_no_manifest(self):
+        root = self.make({"L0-purpose.md": L0}, manifest="")
+        (root / "spec.yaml").unlink()
+        _, f = self.check(root)
+        self.assertCode(f, "no-manifest", "error")
+
+    def test_bad_manifest(self):
+        for text in ("name: Bad Name\n", "bogus: 1\nname: t\n", "name: t\nparents: [a]\n", "name: t\nchildren:\n  x: 1\n", "name: [\n"):
+            root = self.make({"L0-purpose.md": L0}, manifest=text, subdir="s" + str(abs(hash(text))))
+            _, f = self.check(root)
+            self.assertCode(f, "bad-manifest", "error")
+
+    def test_bad_profile(self):
+        root = self.make({"L0-purpose.md": L0}, manifest="name: t\nprofile: nope\n")
+        _, f = self.check(root)
+        self.assertCode(f, "bad-profile", "error")
+        root = self.make({"L0-purpose.md": L0, "profile.yaml": "name: x\nlevels:\n  - n: 0\n    kinds:\n      L: bad\n"}, subdir="s2")
+        _, f = self.check(root)
+        self.assertCode(f, "bad-profile", "error")
+
+    def test_unknown_and_duplicate_level(self):
+        root = self.make({"L0-purpose.md": L0, "L7-x.md": "## G9 — nine\n", "L0-again/a.md": "## G3 — dup level\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "unknown-level", "error")
+        self.assertCode(f, "duplicate-level", "error")
+
+    def test_duplicate_id(self):
+        root = self.make({"L0-purpose.md": L0 + "## G1 — again\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "duplicate-id", "error", count=1)
+
+    def test_bad_header_values(self):
+        root = self.make({"L0-purpose.md": (
+            "## G1 — One\nstatus: nope\n"
+            "## G2 — Two\nderived: false\n"
+            "## G3 — Three\nserves: [G1\n"
+            "## G4 — Four\nserves: 42\n"
+            "## G5 — Five\nstatus: draft\nstatus: draft\n"
+            "## G6 — Six\nwas: [not an id]\n"
+        )})
+        _, f = self.check(root)
+        self.assertCode(f, "bad-header", "error", count=6)
+
+    def test_unknown_key_and_relation(self):
+        root = self.make({"L0-purpose.md": "## G1 — One\nrationale: because\n\nSee [[fulfils G2]].\n## G2 — Two\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "unknown-key", "error", count=1)
+        self.assertCode(f, "unknown-relation", "error", count=1)
+
+    def test_link_outside_item(self):
+        root = self.make({"L0-purpose.md": "# Title\n\nIntro with [[serves G1]] before any item.\n\n## G1 — One\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "link-outside-item", "error", count=1)
+
+    def test_level_prefix_rules(self):
+        root = self.make({
+            "L0-purpose.md": L0 + "## V1 — no prefix\n## L1-V2 — wrong prefix\n## L0-G3 — prefix on fixed kind\n",
+            "L4-realization.md": "## L4-V3 — fine\nverifies: G1\n",
+        })
+        _, f = self.check(root)
+        self.assertCode(f, "missing-level-prefix", "error", count=1)
+        self.assertCode(f, "wrong-level-prefix", "error", count=1)
+        self.assertCode(f, "unexpected-level-prefix", "error", count=1)
+        self.assertNoCode(f, "unknown-kind")
+
+    def test_unknown_kind_and_wrong_level(self):
+        root = self.make({"L0-purpose.md": L0 + "## Q1 — no such kind\n## P1 — principle at L0\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "unknown-kind", "error", count=1)
+        self.assertCode(f, "kind-at-wrong-level", "error", count=1)
+
+    def test_refinement_of_unknown(self):
+        root = self.make({"L0-purpose.md": "## G1 — One\n- G2.1 — orphan refinement\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "refinement-of-unknown", "error", count=1)
+
+    def test_unknown_id_and_self_link(self):
+        root = self.make({"L0-purpose.md": L0, "L1-principles.md": "## P1 — P\nserves: [G1, G9]\ndepends-on: P1\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "unknown-id", "error", count=1)
+        self.assertCode(f, "self-link", "error", count=1)
+
+    def test_unknown_namespace(self):
+        root = self.make({"L0-purpose.md": "## G1 — One\nserves: nowhere:G1\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "unknown-namespace", "error", count=1)
+
+    def test_serves_downward(self):
+        root = self.make({"L0-purpose.md": "## G1 — One\nserves: P1\n", "L1-principles.md": "## P1 — P\nserves: G1\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "serves-downward", "error", count=1)
+
+    def test_assumes_and_discharge_kind_rules(self):
+        root = self.make({"L0-purpose.md": L0 + "## G3 — Three\nassumes: G1\ndischarged-by: G2\n"})
+        _, f = self.check(root)
+        self.assertCode(f, "assumes-non-assumption", "error", count=1)
+        self.assertCode(f, "discharge-on-non-assumption", "error", count=1)
+
+
+class ReportTests(SpecCase):
+    def test_clean_spec_has_no_errors(self):
+        root = self.make({
+            "L0-purpose.md": "## Mission\n## Goals\n## G1 — One\nstatus: adopted\n## Constraints\n## C1 — Con\nserves: G1\n",
+            "L1-principles.md": "## Principles\n## P1 — P\nserves: G1\n",
+            "L2-architecture.md": "## Components\n## D1 — D\nserves: P1\n",
+        })
+        _, f = self.check(root)
+        self.assertNoErrors(f)
+        # D1 is at the bottom of what exists, so it is unserved; all else is served.
+        self.assertEqual([x.code for x in f if x.code == "unserved"], ["unserved"])
+        self.assertNoCode(f, "orphan")
+
+    def test_orphan_and_derived(self):
+        root = self.make({
+            "L0-purpose.md": "## G1 — One\n",
+            "L1-principles.md": "## P1 — orphan\n## P2 — derived\nderived: true\n## P3 — both\nderived: true\nserves: G1\n## P4 — fine\nserves: G1\n",
+        })
+        _, f = self.check(root)
+        hits = self.assertCode(f, "orphan", "report", count=1)
+        self.assertIn("P1", hits[0].message)
+        self.assertCode(f, "derived-but-serves", "report", count=1)
+
+    def test_refinements_are_not_orphans(self):
+        root = self.make({"L0-purpose.md": "## G1 — One\n", "L1-principles.md": "## P1 — P\nserves: G1\n- P1.1 — sub\n"})
+        _, f = self.check(root)
+        self.assertNoCode(f, "orphan")
+
+    def test_unserved_and_undischarged(self):
+        root = self.make({"L0-purpose.md": L0 + "## G3 — rejected\nstatus: rejected\n", "L1-principles.md": "## P1 — P\nserves: G1\nassumes: A1\n"})
+        _, f = self.check(root)
+        unserved = {x.message.split()[0] for x in f if x.code == "unserved"}
+        self.assertEqual(unserved, {"G2", "P1"})   # G1 served by P1; G3 rejected; C1 and A1 are not goal-like
+        self.assertCode(f, "undischarged-assumption", "report", count=1)
+
+    def test_skip_level_and_same_level(self):
+        root = self.make({
+            "L0-purpose.md": L0 + "## G3 — Three\nserves: G1\n",
+            "L2-architecture.md": "## D1 — D\nserves: G1\n",
+        })
+        _, f = self.check(root)
+        self.assertCode(f, "skip-level", "report", count=1)
+        hits = self.assertCode(f, "serves-same-level", "report", count=1)
+        self.assertIn("G3", hits[0].message)
+        self.assertNoErrors(f)
+
+    def test_constraint_serving_goal_is_silent(self):
+        root = self.make({"L0-purpose.md": "## G1 — One\n## C1 — Con\nserves: G1\n"})
+        _, f = self.check(root)
+        self.assertNoCode(f, "serves-same-level")
+
+    def test_verifies_supersedes_mention_refs(self):
+        root = self.make({
+            "L0-purpose.md": "## G1 — One\nrefs: [exists.md, missing.md]\n\nSee [[G9]].\n## G2 — Old\nsupersedes: G1\n## G3 — verifier?\nverifies: G1\n",
+            "exists.md": "x",
+        })
+        _, f = self.check(root)
+        self.assertCode(f, "verifies-from-non-verification", "report", count=1)
+        self.assertCode(f, "supersedes-unmarked", "report", count=1)
+        self.assertCode(f, "unresolved-mention", "report", count=1)
+        hits = self.assertCode(f, "missing-ref", "report", count=1)
+        self.assertIn("missing.md", hits[0].message)
+
+    def test_refs_root(self):
+        root = self.make({"L0-purpose.md": "## G1 — One\nrefs: [spec/L0-purpose.md]\n"},
+                         manifest="name: t\nrefs-root: ..\n")
+        _, f = self.check(root)
+        self.assertNoCode(f, "missing-ref")
+
+    def test_sections_absent(self):
+        root = self.make({"L0-purpose.md": "## Mission\n## G1 — One\n"})
+        _, f = self.check(root)
+        hits = self.assertCode(f, "sections-absent", "report", count=1)
+        self.assertNotIn("Mission", hits[0].message)
+        self.assertIn("Goals", hits[0].message)

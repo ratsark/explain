@@ -1,0 +1,71 @@
+# The software profile: five levels, from the first deploying project's shape, under generic names.
+# Kind letters are unique across the spec. "L" is reserved for level prefixes
+# (L0-, L1-, ...) and may not be a kind.
+name: software
+per-level-kinds:
+  V: verification # ids carry the level prefix: L0-V1, L4-V3
+levels:
+  - n: 0
+    name: purpose
+    kinds:
+      G: goal
+      C: constraint # pass/fail; never traded for goal progress
+      A: assumption # a fact about the environment this spec relies on
+      X: limitation # an accepted gap
+      R: risk # hazards, threats, failure modes
+      E: evaluation criterion
+    sections:
+      - Mission
+      - Goals
+      - Constraints
+      - Environment:
+          - Assumptions
+          - External constraints
+      - Users and operators
+      - Limitations
+      - Risks:
+          - Hazards
+          - Safety constraints
+          - Security threats
+      - Evaluation criteria and priorities
+      - Verification
+  - n: 1
+    name: principles
+    kinds:
+      P: principle
+    sections:
+      - Principles
+      - Budgets
+      - Never-list
+      - Verification
+  - n: 2
+    name: architecture
+    kinds:
+      D: design element # charters, doctrines, components, interfaces, behaviors
+    sections:
+      - Components
+      - Interfaces
+      - Behaviors
+      - Charters and doctrines
+      - Environment models
+      - Operator tasks
+      - Verification
+  - n: 3
+    name: specs
+    kinds:
+      S: spec # rulings, detailed specs, ADRs, acceptance criteria
+    sections:
+      - Rulings
+      - Specs
+      - Decisions
+      - Acceptance criteria
+      - Verification
+  - n: 4
+    name: realization
+    kinds:
+      I: implementation # code pointers
+    sections:
+      - Code
+      - Guards
+      - Tests
+      - Operations

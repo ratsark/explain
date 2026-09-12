@@ -1,0 +1,6 @@
+name: aircraft
+title: Transport aircraft (illustrative parent spec)
+profile: software
+adopted-through: L0
+children:
+  - path: ../cas # the collision avoidance system has its own spec

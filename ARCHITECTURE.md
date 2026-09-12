@@ -1,0 +1,397 @@
+# Architecture: the format and the tool
+
+Status: v0, 2026-09-12. Sections 1 through 8 and 11 were reviewed with the user
+on 2026-09-12 (unique prefixes, hybrid links, file structure, relation to the
+standard docs). Research behind it: `research/00-SYNTHESIS.md`. Prior art it
+must respect: the first deploying project's existing intent hierarchy and the
+lessons it recorded, summarised in section 10. That project is private; its
+integration notes live in its own repo, and nothing specific to it is here.
+
+## 1. What a spec is
+
+A **spec** describes one system as a means-ends hierarchy. It is one directory.
+Levels are subdirectories or files of that directory. Items are markdown
+headings or list items inside those files. Every item has a stable id, optional
+header fields, and a prose body. Every link is typed, and the tool reads links
+from headers and from prose alike, so the graph never depends on where an
+author chose to put a link.
+
+A spec can name **parent specs** (systems it is a component of) and **child
+specs** (its components). Cross-spec references carry the other spec's name as a
+namespace. Parents and children may live anywhere: another directory, another
+repo, or only as an exported index file.
+
+The level set is not fixed. A **profile** declares the levels, the item kinds
+allowed at each, and the optional sections each level may grow. A spec names its
+profile in its manifest. The first profile is `software`; a business-proposition
+profile is planned.
+
+## 2. Directory layout
+
+```
+<spec-root>/
+  spec.yaml                 manifest (section 3)
+  L0-purpose.md             a level as a single file...
+  L1-principles.md
+  L2-architecture/          ...or as a directory of files
+    00-components.md
+    fire-charter.md
+    surfaces/
+      surface-doctrine.md
+  L3-specs/
+    countdown.md
+  L4-realization.md         mostly pointers into code and tests
+  README.md                 ignored by the tool (no L-prefix)
+```
+
+Rules:
+
+- A top-level entry named `L<n>-<name>.md` or `L<n>-<name>/` belongs to level n.
+  Everything under a level directory is at that level, however deep. The level of
+  an item is therefore known from its path. This is what lets the tool detect
+  skip-level links, which the first project's earlier index tool could not.
+- Anything without an `L<n>-` prefix at the top level is not part of the spec
+  and is ignored. Levels may be absent; a spec with only `L0-purpose.md` is
+  valid.
+
+### Files within a level
+
+The tool reads a level as if all its files were one document. Ids are global,
+nothing references a file path, so file placement is purely for human
+navigation. The organizing principle is part-whole decomposition (Leveson's
+third axis): one file per component, subsystem, or topic, or one file per
+profile section (goals, constraints, environment). Subdirectories inside a level
+group files further and carry no other meaning.
+
+- A level starts as one file and becomes a directory when it grows:
+  `git mv L0-purpose.md L0-purpose/00-goals.md`, then split. No link changes.
+- Files and directories sort by name in `outline`; an optional numeric prefix
+  controls order.
+- A file's first heading without an id is its title. Headings without ids are
+  section headings and never items.
+- Moving an item between files inside a level changes nothing in the graph.
+  Moving it between levels is a level move and re-prefixes its id (section 4).
+
+## 3. The manifest: `spec.yaml`
+
+```yaml
+name: cas                      # namespace used by other specs to cite this one
+title: Collision avoidance system
+profile: software              # which level set and kind vocabulary applies
+adopted-through: L1            # review flow: levels the owner has signed off
+parents:
+  aircraft:                    # the name the parent calls itself
+    path: ../aircraft          # optional: resolve live from a local checkout
+    index: parents/aircraft.index.json   # or: a committed snapshot
+children:
+  - path: ../display           # optional; lets the parent build its allocation view
+```
+
+Parents and children are both optional. A child that names a parent by index
+file only is loosely coupled: the parent can be in another repo or another
+version-control system, and the child commits a snapshot of the parent's ids.
+The tool reports when the snapshot is older than the parent's live export, if
+both are reachable.
+
+## 4. Items
+
+An item is either a heading or a list item whose text starts with an id, then a
+separator (an em dash, hyphen, or colon), then a title.
+
+```markdown
+## G2 — Avoid collision with other aircraft
+status: adopted
+source: certification basis, 2026-09-01
+
+In all meteorological conditions, with or without ground control. The
+protected volume and the advisory logic are L1 mechanisms [[serves G1]],
+each replaceable.
+
+- G2.1 — Detect: track every transponder-equipped aircraft in range
+- G2.2 — Resolve: advise the crew of an escape manoeuvre [[depends-on C1]]
+  - G2.2.1 — Coordinate: two equipped aircraft choose complementary senses
+- G2.3 — Display: show nearby traffic to the crew
+```
+
+Rules:
+
+- **Heading items** may carry a header and a body. The heading depth (`##`,
+  `###`) is free; structure comes from ids.
+- **Bullet items** carry a title, inline prose, and inline links only. Nested
+  bullets are nested refinement. This is how sub-goals stay compact.
+- The **header** is the contiguous run of `key: value` lines directly under a
+  heading item (a blank line or any other line ends it). It is optional. No
+  fence. Keys come from the closed vocabulary in section 5.
+- The **body** is everything after the header until the next item at the same
+  or shallower depth, or the next heading.
+- **Links are typed wherever they appear, and placement carries no meaning.**
+  `serves: G2` in a header and `[[serves G2]]` in a sentence are the same edge.
+  Put a link in the header when it applies to the whole item; put it inline
+  when it belongs to one sentence. Untyped `[[G2]]` is a mention: checked for
+  existence, never an edge. Bare `G2` in prose is plain text.
+
+### Ids
+
+An id is a **kind letter** and a number, with optional dotted refinement:
+`G2`, `C1`, `P10`, `G6.2`, `D3.1.4`.
+
+- Kind letters are declared by the profile and are unique across the spec, so a
+  kind implies a level and `G2` never needs qualifying. This is the rule the
+  first project adopted after an id collision between two levels, made
+  structural.
+- **Per-level kinds.** A kind that legitimately exists at every level, such as
+  verification, is declared `per-level` in the profile, and its ids carry the
+  level prefix used by the directory layout: `L2-V3`, refined as `L2-V3.1`.
+  Any other kind is fixed to one level and never prefixed.
+- Ids are immutable within a level. A level move re-prefixes (a goal demoted
+  to a principle goes from `G5` to `P5`). A `was:` field lets stray references
+  resolve.
+- **Dotted ids are refinement, not means-ends.** `G6.2` is a more detailed part
+  of `G6` at the same level. It needs no `serves:` line; the tool infers
+  containment. Splitting a level into files is decomposition, also within a
+  level.
+- Numbers need not be dense or ordered. `P10` may be proposed before `P8` is
+  adopted.
+- Slug ids (`G-safety`) are not in v0. Numeric ids are what the first project
+  already cites, and `show` answers "what is G2" instantly. A `slug:` alias
+  field can come later.
+
+### Cross-spec ids
+
+`<spec-name>:<id>`, for example `aircraft:D1`. The spec name comes from the
+target's manifest and must be declared under `parents:` or `children:` in the
+citing spec's manifest.
+
+## 5. Link types and header fields
+
+The closed vocabulary. Unknown keys and unknown inline relation names are
+errors, so a typo cannot silently create a relation nobody reads.
+
+Relations (valid in a header and inline as `[[<relation> <id>]]`):
+
+| Relation | Meaning | Direction |
+|---|---|---|
+| `serves` | The ends this item exists for. The means-ends link. Targets should be one level up; may be cross-spec. | up |
+| `assumes` | Assumption items (kind `A`) this item rests on. | lateral |
+| `discharged-by` | On an assumption: the item (usually in a parent or sibling spec) that guarantees it. | up or lateral |
+| `verifies` | On a verification item: the items it checks. Any level. | up |
+| `depends-on` | Needs this other item to exist or hold; not a purpose relation. | lateral |
+| `conflicts-with` | Recorded tension; the body says how it is reconciled. | lateral |
+| `supersedes` | This item replaces that one. The target should carry `status: superseded`. | lateral |
+
+Header-only fields:
+
+| Field | Meaning |
+|---|---|
+| `status` | `draft`, `proposed`, `adopted`, `superseded`, `rejected`. |
+| `derived` | `true` when an item deliberately has no `serves:` (a decision with no higher purpose, allowed and marked, per Leveson). |
+| `owner` | Free text: who maintains this item. |
+| `was` | Previous ids of this item after a level move or renumber. |
+| `source` | Free text or path: where the body's authority comes from. |
+| `refs` | Paths into code, tests, docs. Checked for existence only. |
+
+Inverses are never written. `served-by`, `assumed-by`, `verified-by`, and
+`depended-on-by` are computed. Hand-written bidirectional links are where every
+surveyed format started drifting.
+
+Header values are a single id or a list: `serves: G2` or
+`serves: [G2, G3, biz:G1]`. Inline links take one id each.
+
+## 6. Levels and adjacency
+
+Adjacent-level `serves:` links are the goal, not a hard rule. The tool reports a
+skip link as a **warning** with the suggestion that a middle item is waiting to
+be named. Nobody is blocked from finishing a document because the intermediate
+level is missing. A `serves:` that points downward is an error.
+
+At L1 and below, an item with no `serves` and no `derived: true` is an
+**orphan** warning. L0 items need no `serves` unless the spec has a parent, in
+which case a top-level item that serves nothing in the parent is a warning
+labelled "derived from the parent's point of view", which is the ARP4754A rule.
+
+## 7. Profiles
+
+A profile is a YAML file shipped with the tool (or placed in the spec root as
+`profile.yaml` to override). It declares levels, kinds, and the optional section
+tree per level:
+
+```yaml
+name: software
+per-level-kinds:
+  V: verification            # ids carry the level prefix: L0-V1, L4-V3
+levels:
+  - n: 0
+    name: purpose
+    kinds:
+      G: goal
+      C: constraint          # pass/fail; never traded for goal progress
+      A: assumption          # a fact about the environment this spec relies on
+      X: limitation          # an accepted gap ("L" is reserved for level prefixes)
+      R: risk                # hazards, threats, failure modes
+      E: evaluation criterion
+    sections:                # the optional heading tree; elided until used
+      - Mission
+      - Goals
+      - Constraints
+      - Environment:
+          - Assumptions
+          - External constraints
+      - Users and operators
+      - Limitations
+      - Risks:
+          - Hazards
+          - Safety constraints
+          - Security threats
+      - Evaluation criteria and priorities
+      - Verification
+  - n: 1
+    name: principles
+    kinds: {P: principle}
+    sections: [Principles, Budgets, Never-list, Verification]
+  - n: 2
+    name: architecture
+    kinds: {D: design element}      # charters, doctrines, components, interfaces, behaviors
+    sections: [Components, Interfaces, Behaviors, Charters and doctrines, Environment models, Operator tasks, Verification]
+  - n: 3
+    name: specs
+    kinds: {S: spec}                # rulings, detailed specs, ADRs, acceptance criteria
+    sections: [Rulings, Specs, Decisions, Acceptance criteria, Verification]
+  - n: 4
+    name: realization
+    kinds: {I: implementation}      # code pointers
+    sections: [Code, Guards, Tests, Operations]
+```
+
+These are the first deploying project's five levels under generic names: its
+"charters and doctrines" are design elements, its "rulings and specs" are
+specs, its "code and guards" are realization plus `L4-V` items. Directory
+names can be a project's own (`L2-charters/`); the tool keys on the `L<n>-`
+prefix only.
+
+Sections are the answer to Leveson's four columns (environment, operator,
+system, verification at every level). They become optional standard sections
+per level, declared once in the profile and present in a document only when
+they have content. The environment column is the `A` kind plus the Environment
+section; the operator column is Users and operators; verification is the
+per-level `V` kind and the `verifies` link. `outline` lists which profile
+sections a level has not yet filled in, which is what "elided until it comes
+up" needs to stay honest.
+
+The Leveson seven-level set will ship as a second profile, `leveson`, mostly as
+documentation of the mapping.
+
+## 8. Nesting
+
+A child spec declares its parent in `spec.yaml`. Then:
+
+- The child's L0 items that exist because of the parent carry
+  `serves: parent:ID`. That is the downward projection: the parent's design
+  element becomes the child's purpose.
+- The child's assumptions about its environment are `A` items. Each carries
+  `discharged-by: parent:ID` or `discharged-by: sibling:ID` when something
+  guarantees it. An assumption with no discharger is a warning: an obligation
+  nobody has accepted.
+- Child L0 items with no parent target are reported as derived. The parent
+  acknowledges them by citing them (`depends-on: child:G4`) or the child marks
+  `derived: true` with a body that says why.
+- The parent runs `explain allocations` to see, per parent item, which child
+  items serve it, across all declared children. Generated, never hand-written.
+
+The contract between parent and child is exactly: the parent's exported index,
+the child's `serves` links into it, and the child's `A` items with dischargers.
+No third document. When the two sides are owned by different groups, the child
+commits the parent's index snapshot and the tool reports staleness.
+
+## 9. The tool
+
+One command, Python 3 standard library only, one file or a small package so it
+can be copied into any repo's `tools/`. The tool and the project are named
+`explain` (chosen 2026-09-12). Design stance inherited from the first project's earlier index tool: dumb and greppable
+over clever, and never silently incomplete. Every pattern it matches is printed
+by `--patterns`; every known miss is declared.
+
+Header lines and manifests are parsed as a strict, documented YAML subset
+(scalars, flow lists, block lists, one level of nesting for the manifest)
+rather than by PyYAML, to keep the tool dependency-free.
+
+Commands, v0:
+
+| Command | Answers |
+|---|---|
+| `explain check [path]` | All errors and reports for a spec, with file and line. Exit 1 on errors, 0 otherwise; `--strict` promotes reports. |
+| `explain show ID` | "What is G2": heading, header, body, location, computed inverses. |
+| `explain serves ID` | Everything downstream, transitively. The re-evaluation sweep. |
+| `explain why ID` | The upward chain to L0 and into parents. |
+| `explain orphans` | Items at L1+ with no `serves` and no `derived`. |
+| `explain outline` | Levels, files, items, one line each; profile sections not yet present. |
+| `explain export` | The spec's index JSON for other specs to cite. |
+| `explain allocations` | Parent view: per item, the child items that serve it. |
+| `explain assumptions` | Every `A` item and what discharges it. |
+
+Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
+
+- **Errors** mean the graph is malformed and cannot be trusted. They fail
+  `check`. Duplicate id; kind not allowed at this level; per-level kind without
+  its level prefix, or prefix disagreeing with the path; unknown id in any
+  relation; unknown spec namespace; unknown header key or inline relation name;
+  malformed header line; `serves` pointing downward; a refinement (`G6.2`)
+  whose parent (`G6`) is not defined.
+- **Reports** mean the graph is incomplete. They never fail `check`; they are
+  the to-do list, and a goal added today is expected to have nothing under it.
+  Orphan (L1+ item serving nothing, not marked derived); unserved (an item
+  nothing serves); skip-level link; same-level `serves` between items of the
+  same kind (a constraint serving a goal at L0 is fine); unresolved `[[ID]]`
+  mention; undischarged assumption; `refs` path missing (an external pointer,
+  not part of the graph); profile section not yet present; a declared parent
+  or child that cannot be resolved; parent index snapshot stale; `supersedes`
+  target not marked superseded. `--strict` promotes reports to errors for
+  anyone who wants a release gate.
+
+`status: draft` versus `adopted`, and the manifest's `adopted-through`, let a
+reader tell an expected gap from an overdue one.
+
+Later, not v0: content fingerprints on links so a changed parent marks its
+dependants suspect (Doorstop's mechanism); HTML rendering; a `review` command
+that walks a level item by item.
+
+## 10. Lessons from the first deployment carried into the design
+
+The first project to adopt the format had run a hand-rolled intent hierarchy
+for weeks before this tool existed, and had written down what went wrong.
+Each lesson below became a rule.
+
+- Ids collided when one letter was used at two levels. Kind letters are unique
+  per spec by profile rule; per-level kinds carry the level prefix; the tool
+  errors on a kind at the wrong level.
+- Skip links could not be detected because an item's level was not in the data.
+  Level now comes from the path.
+- Bare ids in prose were ambiguous with sim-guard names. Only typed links are
+  edges; `[[ID]]` is a checked mention; bare text is text.
+- Two copies of a law drifted. Bodies live in one place; a registry row points
+  at a body via `refs` and `source`.
+- A means got reified as an end because the real end was unrecorded. Orphan
+  and derived reporting exist for this.
+- "Keep it dumb and greppable" and "v1 may be incomplete but never silently
+  incomplete" are adopted verbatim.
+
+## 11. Relation to the standard project documents
+
+The five standard documents (operating norms) map onto the hierarchy, with one
+exception, and the end state is that the spec *is* those documents rather than
+a parallel copy of them (the first project's own constraint: nothing left
+standing that nothing reaches).
+
+| Document | Becomes |
+|---|---|
+| MISSION_STATEMENT.md | The L0 Mission section. |
+| REQUIREMENTS.md (numbered `R` items) | L0 goals and constraints, as `R` items or re-homed as `G` and `C`. |
+| ARCHITECTURE.md | L2; its numbered key decisions are L3 material. |
+| DEVELOPMENT.md | L4 and operations. |
+| PLAN.md | Stays separate. It is Leveson's Level 0, program management: plans and status, orthogonal to the means-ends stack. Phases cite item ids. |
+| README.md | Stays. An external view. |
+
+Transition mechanics: ARCHITECTURE.md becomes a symlink or a one-line pointer
+to `L2-architecture/`; the norm that mission wording needs explicit approval
+becomes the rule that L0 items need `status: adopted` from the owner, the same
+rule at finer grain. Changing the operating norms themselves is the user's
+decision. This project will dogfood the format on itself (PLAN.md, Phase 5).
