@@ -151,3 +151,17 @@ class AliasCliTests(SpecCase):
         code, _, err = self.run_cli("law 99", str(root))
         self.assertEqual(code, 1)
         self.assertIn("not an id or a known alias", err)
+
+
+class SymmetricRelationTests(SpecCase):
+    def test_conflicts_with_shown_once(self):
+        import contextlib, io
+        root = self.make({"L0-purpose.md": "## G1 — One\nconflicts-with: G2\n## G2 — Two\n"})
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main(["G1", str(root)])
+        self.assertEqual(out.getvalue().count("conflicts-with"), 1)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main(["G2", str(root)])
+        self.assertIn("conflicts-with: G1", out.getvalue())

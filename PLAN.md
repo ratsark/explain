@@ -118,5 +118,9 @@ declared reports; every claim in the old ARCHITECTURE.md has an item id.
 
 ## Later
 
-Content fingerprints on links (suspect-link detection after upstream edits).
-HTML render.
+Candidates surfaced by the first full transcription (see the project's
+`spec/TRANSCRIPTION.md` once landed): a `built:` field (unbuilt | building |
+shipped | removed) so `status` stops carrying build state; a question kind or
+status with a `questions` command, since every family carries open owner
+questions; an `until:` field for "stops serving its end when"; a `due:` field
+for time-bound obligations; a first-class provenance field. HTML render.

@@ -91,7 +91,10 @@ def cmd_show(args):
         print(f"  {rel}: {', '.join(targets)}")
     idx = inbound(spec, tuple(RELATIONS))
     inv = {}
+    outgoing = {(l.relation, split_qid(l.target)[1] if split_qid(l.target) else l.target) for l in it.links}
     for other, rel in idx.get(it.id, []):
+        if rel == "conflicts-with" and (rel, other.id) in outgoing:
+            continue   # symmetric and already shown as outgoing
         inv.setdefault(rel, []).append(other.id)
     kids = [i.id for i in spec.items.values() if i.parent_id == it.id]
     if kids:
