@@ -329,6 +329,7 @@ Commands, v0:
 | `explain assumptions` | Every `A` item and what discharges it. |
 | `explain accept ID... \| --all` | Record that the links from these items were read against their targets as they are now (section 12). |
 | `explain drift` | Accepted links whose targets changed since: what to re-read, grouped by changed target. |
+| `explain review [L1]` | Walk a level item by item: status, links with target titles, flags, body. No level: status counts per level against `adopted-through`. |
 
 Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
 
@@ -354,8 +355,7 @@ Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
 `status: draft` versus `adopted`, and the manifest's `adopted-through`, let a
 reader tell an expected gap from an overdue one.
 
-Later, not v0: HTML rendering; a `review` command that walks a level item by
-item.
+Later, not v0: HTML rendering.
 
 ## 10. Lessons from the first deployment carried into the design
 

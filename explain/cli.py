@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -301,6 +302,65 @@ def cmd_drift(args):
     return 0
 
 
+def cmd_review(args):
+    """Walk a level item by item: what the owner or a chair reads to sign a level off."""
+    if args.level and Path(args.level).is_dir() and args.path == ".":
+        args.path, args.level = args.level, None     # `review PATH` with no level
+    spec = _spec(args.path)
+    if spec is None:
+        return 2
+    findings = run_checks(spec)
+    by_item = {}
+    for x in findings:
+        if x.code in ("orphan", "unserved", "undischarged-assumption", "skip-level", "suspect-link", "derived-from-parent"):
+            by_item.setdefault(x.message.split()[0].rstrip(":,"), []).append(x.code)
+    levels = spec.profile.level_numbers()
+    if args.level:
+        m = re.match(r"^L?(\d+)$", args.level.strip(), re.IGNORECASE)
+        if not m or int(m.group(1)) not in levels:
+            print(f"error: level must be one of {', '.join('L%d' % n for n in levels)}", file=sys.stderr)
+            return 2
+        levels = [int(m.group(1))]
+    adopted_through = str(spec.manifest.get("adopted-through") or "")
+    for n in levels:
+        lv = spec.profile.levels[n]
+        items = sorted((i for i in spec.items.values() if i.level == n and i.parent_id is None), key=lambda i: (str(i.file), i.line))
+        statuses = {}
+        for i in items:
+            statuses[i.status or "(none)"] = statuses.get(i.status or "(none)", 0) + 1
+        signed = f"; signed off through {adopted_through}" if adopted_through else ""
+        print(f"L{n} {lv.name}: {len(items)} items — " + ", ".join(f"{k} {v}" for k, v in sorted(statuses.items())) + signed)
+        if not args.level:
+            continue
+        for i in items:
+            flags = by_item.get(i.id, [])
+            print(f"\n{i.id} — {i.title}" + (f"  [{i.status}]" if i.status else "") + (f"  ⚑ {', '.join(flags)}" if flags else ""))
+            for rel in ("serves", "assumes", "verifies", "depends-on", "conflicts-with", "supersedes", "discharged-by"):
+                targets = [l.target for l in i.links_of(rel)]
+                if targets:
+                    named = []
+                    for t in targets:
+                        q = split_qid(t)
+                        tt = spec.items.get(q[1]).title if q and q[0] in (None, spec.name) and q[1] in spec.items else ""
+                        named.append(f"{t} ({tt})" if tt else t)
+                    print(f"  {rel}: {', '.join(named)}")
+            kids = [k for k in spec.items.values() if k.parent_id == i.id]
+            if kids:
+                print(f"  refined by: {', '.join(k.id for k in sorted(kids, key=lambda k: _idkey(k.id)))}")
+            for key in ("owner", "source", "refs", "was"):
+                if key in i.header:
+                    print(f"  {key}: {_fmt(i.header[key])}")
+            body = i.body.strip()
+            if body:
+                lines = body.splitlines()
+                shown = lines if args.full else lines[:args.lines]
+                for line in shown:
+                    print(f"    {line}")
+                if len(lines) > len(shown):
+                    print(f"    ... ({len(lines) - len(shown)} more lines; --full to show)")
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="explain", description="Query and check a means-ends design spec.")
     p.add_argument("--version", action="version", version=f"explain {__version__}")
@@ -331,10 +391,16 @@ def build_parser():
     s.add_argument("--all", action="store_true", help="every link in the spec")
     s.set_defaults(fn=cmd_accept)
     add("drift", cmd_drift, "accepted links whose targets changed since: what to re-read")
+    s = sub.add_parser("review", help="walk a level item by item (status, links with target titles, body); no level: status counts per level")
+    s.add_argument("level", nargs="?", help="L0, L1, ... (omit for the per-level summary)")
+    s.add_argument("path", nargs="?", default=".", help="spec directory (default: .)")
+    s.add_argument("--lines", type=int, default=6, help="body lines to show per item (default 6)")
+    s.add_argument("--full", action="store_true", help="show whole bodies")
+    s.set_defaults(fn=cmd_review)
     return p
 
 
-COMMANDS = ("check", "show", "serves", "why", "orphans", "outline", "export", "assumptions", "accept", "drift")
+COMMANDS = ("check", "show", "serves", "why", "orphans", "outline", "export", "assumptions", "accept", "drift", "review")
 
 
 def main(argv=None):

@@ -98,6 +98,21 @@ class CliTests(SpecCase):
         code, out, _ = self.run_cli("drift", str(root))
         self.assertEqual(code, 1)
 
+    def test_review(self):
+        root = self.spec()
+        code, out, _ = self.run_cli("review", str(root))
+        self.assertEqual(code, 0)
+        self.assertIn("L0 purpose: 2 items", out)
+        self.assertIn("L1 principles: 2 items", out)
+        code, out, _ = self.run_cli("review", "L1", str(root))
+        self.assertEqual(code, 0)
+        self.assertIn("P1 — P", out)
+        self.assertIn("serves: G1 (One)", out)
+        self.assertIn("P2 — orphan", out)
+        self.assertIn("⚑ orphan", out)
+        code, _, err = self.run_cli("review", "L9", str(root))
+        self.assertEqual(code, 2)
+
     def test_outline_export_assumptions_patterns(self):
         root = self.spec()
         code, out, _ = self.run_cli("outline", str(root))
