@@ -70,7 +70,12 @@ Drift detection (ARCHITECTURE.md section 12): fingerprints, `accepted-links.txt`
 `accept` and `drift`, suspect and untracked reports, fingerprints in exports,
 index-snapshot staleness. **Landed 2026-09-12** with tests.
 
-Full transcription: every standing design artifact of the first project
+Full transcription: **landed 2026-09-12** in the first project's repo: 945
+items, zero errors, every row pointing at its body, five families drafted in
+parallel from four read-only inventories, duplicates merged, cross-family links
+resolved through `aka:`, drift baseline accepted (579 links). Awaiting the
+project's agents' area-by-area review and the owner's decisions (recorded in
+that repo's `spec/owner-questions.md`). Scope, restated: every standing design artifact of the first project
 (numbered laws, never-list, charters, doctrines, surfaces, rulings, systems,
 requirements, architecture decisions, packages, guards) as registry rows in
 its `spec/`, rows pointing at bodies, statuses as the documents state them,
