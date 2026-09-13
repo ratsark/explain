@@ -112,14 +112,20 @@ of `spec/` on the owner's word.
 **Acceptance:** a level-by-level review of a real spec run with the user using
 the tool; the first project's agents use only the new tool.
 
-## Phase 5 — Dogfood _(not started)_
+## Phase 5 — Dogfood _(complete 2026-09-13)_
 
-Rewrite this project's own ARCHITECTURE.md as a spec: goals such as "dumb and
-greppable" and "incompleteness is a report" at L0, format rules at L1, the
-tool's design at L2, with ARCHITECTURE.md reduced to a pointer.
+explain's own spec under `spec/`: mission and goals at L0, the format's
+principles at L1, the tool's components (with interfaces and `hides:`) and the
+format's doctrines at L2, every settled decision at L3 with its date and
+reason, modules and test files at L4. ARCHITECTURE.md stays as the body and
+names itself the body; the spec is the index.
 
-**Acceptance:** `explain check` on this repo's own spec is clean apart from
-declared reports; every claim in the old ARCHITECTURE.md has an item id.
+**Acceptance:** met. `tests/test_dogfood.py` asserts zero errors, no orphans,
+no suspect links, no boundary crossings, every ARCHITECTURE.md section cited
+by a row, and every test file a guard. Writing it surfaced five unnamed L2
+doctrines (the item grammar, the id scheme, the report taxonomy, the
+command-line conventions, questions and conditions) that the skip-level
+report asked for.
 
 ## Later
 

@@ -1,5 +1,9 @@
 # Architecture: the format and the tool
 
+This document is the body; `spec/` is the index. Every section here is cited by
+a row in explain's own spec (`python3 -m explain check spec`, `python3 -m explain
+why S7 spec`), which is the format applied to itself.
+
 Status: v0, 2026-09-12. Sections 1 through 8 and 11 were reviewed with the user
 on 2026-09-12 (unique prefixes, hybrid links, file structure, relation to the
 standard docs). Research behind it: `research/00-SYNTHESIS.md`. Prior art it

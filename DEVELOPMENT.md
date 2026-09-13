@@ -9,6 +9,7 @@ ARCHITECTURE.md       the format and tool design (the spec of the spec)
 PLAN.md               phases and acceptance criteria
 MISSION_STATEMENT.md  approved 2026-09-12
 research/             background reports and synthesis
+spec/                 explain's own spec: the format applied to itself (tests/test_dogfood.py keeps it honest)
 examples/aircraft/    illustrative parent spec
 examples/cas/         illustrative child spec (collision avoidance), nested under aircraft
 explain/              the tool
