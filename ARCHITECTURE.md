@@ -184,6 +184,7 @@ Header-only fields:
 | Field | Meaning |
 |---|---|
 | `status` | `draft`, `proposed`, `adopted`, `superseded`, `rejected`. |
+| `built` | `unbuilt`, `building`, `shipped`, `removed`: the realization's state, separate from the decision's. Changes what `unserved` means (section 9). |
 | `derived` | `true` when an item deliberately has no `serves:` (a decision with no higher purpose, allowed and marked, per Leveson). |
 | `owner` | Free text: who maintains this item. |
 | `was` | Previous ids of this item after a level move or renumber. |
@@ -328,6 +329,7 @@ Commands, v0:
 | `explain serves ID` | Everything downstream, transitively. The re-evaluation sweep. |
 | `explain why ID` | The upward chain to L0 and into parents. |
 | `explain orphans` | Items at L1+ with no `serves` and no `derived`. |
+| `explain isolated` | Items with no link in either direction, by level. The settlement measure that only falls: it cannot be moved by trading one report class for another. |
 | `explain outline` | Levels, files, items, one line each; profile sections not yet present. |
 | `explain export` | The spec's index JSON for other specs to cite. |
 | `explain allocations` | Parent view: per item, the child items that serve it. |
@@ -350,7 +352,11 @@ Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
 - **Reports** mean the graph is incomplete. They never fail `check`; they are
   the to-do list, and a goal added today is expected to have nothing under it.
   Orphan (L1+ item serving nothing, not marked derived); unserved (an item
-  nothing serves); skip-level link; same-level `serves` between items of the
+  nothing serves and whose build state is unstated); unrealized (shipped, but
+  no implementation row serves it) and unguarded (shipped, but nothing
+  verifies it), which replace unserved once `built:` is stated, while unbuilt
+  and building rows are counted as the roadmap rather than reported one by
+  one; skip-level link; same-level `serves` between items of the
   same kind (a constraint serving a goal at L0 is fine); unresolved `[[ID]]`
   mention; undischarged assumption; `refs` path missing (an external pointer,
   not part of the graph); profile section not yet present; a declared parent
@@ -364,7 +370,12 @@ Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
   errors for anyone who wants a release gate.
 
 `status: draft` versus `adopted`, and the manifest's `adopted-through`, let a
-reader tell an expected gap from an overdue one.
+reader tell an expected gap from an overdue one. The `check` summary line
+also prints the isolated count (items with no link in either direction) and
+the build-state counts; the isolated count is the honest measure of
+settlement progress, because naming a distant true parent retires an orphan
+but adds a skip-level report, so report totals barely move while the graph
+genuinely improves.
 
 Later, not v0: HTML rendering.
 

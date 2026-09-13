@@ -309,6 +309,12 @@ def run_checks(spec, ext=None):
                          f"`explain accept --all` after reading them", Path("accepted-links.txt")))
 
     # --- completeness ----------------------------------------------------------
+    verified_by = set()
+    for it in items.values():
+        for link in it.links_of("verifies"):
+            q = split_qid(link.target)
+            if q and q[0] in (None, spec.name):
+                verified_by.add(q[1])
     top = min(profile.level_numbers())
     has_parents = bool(spec.manifest.get("parents"))
     for it in items.values():
@@ -328,8 +334,15 @@ def run_checks(spec, ext=None):
         if it.kind == "A" and not it.links_of("discharged-by"):
             f.append(Finding("report", "undischarged-assumption",
                              f"{it.id}: nothing discharges this assumption", it.file, it.line))
-        if it.kind in ("G", "P", "D", "S") and it.id not in served_by and it.status not in ("superseded", "rejected"):
-            f.append(Finding("report", "unserved", f"{it.id} is served by nothing yet", it.file, it.line))
+        if it.kind in ("G", "P", "D", "S") and it.status not in ("superseded", "rejected"):
+            built = it.header.get("built")
+            if it.id not in served_by:
+                if built is None:
+                    f.append(Finding("report", "unserved", f"{it.id} is served by nothing yet (built: unstated)", it.file, it.line))
+                elif built == "shipped":
+                    f.append(Finding("report", "unrealized", f"{it.id} is shipped but nothing serves it: no implementation row points at it", it.file, it.line))
+            if built == "shipped" and it.id not in verified_by:
+                f.append(Finding("report", "unguarded", f"{it.id} is shipped but nothing verifies it", it.file, it.line))
 
     # --- sections ------------------------------------------------------------
     for n, lf in spec.levels.items():
@@ -372,6 +385,26 @@ def run_checks(spec, ext=None):
 
 
 # --- queries -----------------------------------------------------------------
+
+def connectivity(spec):
+    """(isolated items, built-state counts). Isolated: no link in either direction and no refinement
+    parent or child; mentions do not count. Cross-spec links count as outgoing."""
+    linked = set()
+    for it in spec.items.values():
+        if it.links:
+            linked.add(it.id)
+        for link in it.links:
+            q = split_qid(link.target)
+            if q and q[0] in (None, spec.name):
+                linked.add(q[1])
+        if it.parent_id:
+            linked.add(it.id)
+            linked.add(it.parent_id)
+    isolated = [it for it in spec.items.values() if it.id not in linked]
+    built = {}
+    for it in spec.items.values():
+        built[it.header.get("built") or "unstated"] = built.get(it.header.get("built") or "unstated", 0) + 1
+    return isolated, built
 
 def inbound(spec, relations=DOWNSTREAM_RELATIONS):
     """target id -> [(item, relation)] over local links."""

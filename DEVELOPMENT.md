@@ -42,6 +42,7 @@ python3 -m explain G2 examples/cas                # same: a bare id means show
 python3 -m explain serves G1 examples/cas         # everything downstream, transitively
 python3 -m explain why D2 examples/cas            # the upward chain, into the parent spec
 python3 -m explain orphans examples/cas
+python3 -m explain isolated examples/cas         # items with no link either way, by level
 python3 -m explain outline examples/cas           # levels, files, items, sections not yet present
 python3 -m explain export -o cas.index.json examples/cas
 python3 -m explain assumptions examples/cas

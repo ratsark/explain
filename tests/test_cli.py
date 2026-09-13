@@ -165,3 +165,19 @@ class SymmetricRelationTests(SpecCase):
         with contextlib.redirect_stdout(out):
             main(["G2", str(root)])
         self.assertIn("conflicts-with: G1", out.getvalue())
+
+
+class IsolatedCliTests(SpecCase):
+    def test_isolated_and_summary(self):
+        import contextlib, io
+        root = self.make({"L0-purpose.md": "## G1 — linked\n## G2 — lonely\nbuilt: shipped\n", "L1-principles.md": "## P1 — P\nserves: G1\n"})
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["isolated", str(root)])
+        self.assertEqual(code, 0)
+        self.assertIn("G2", out.getvalue())
+        self.assertIn("1 isolated of 3", out.getvalue())
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main(["check", str(root)])
+        self.assertIn("isolated (no link either way): 1 of 3 (33%); built: shipped 1, unstated 2", out.getvalue())

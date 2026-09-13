@@ -52,7 +52,8 @@ RELATIONS = {
     "supersedes": "this item replaces that one (lateral)",
 }
 HEADER_FIELDS = {
-    "status": "draft | proposed | adopted | superseded | rejected",
+    "status": "draft | proposed | adopted | superseded | rejected (the decision's state)",
+    "built": "unbuilt | building | shipped | removed (the realization's state; separate from status)",
     "derived": "true when an item deliberately serves nothing",
     "owner": "who maintains this item",
     "was": "previous ids after a level move or renumber",
@@ -65,6 +66,7 @@ HEADER_FIELDS = {
     "hides": "the design decision this component encapsulates (free text, on a component node)",
 }
 STATUSES = ("draft", "proposed", "adopted", "superseded", "rejected")
+BUILT = ("unbuilt", "building", "shipped", "removed")
 
 # Relations whose target, when changed, affects the source. Used by `serves`
 # (the downstream sweep): X is downstream of Y if X has one of these to Y.
@@ -460,6 +462,10 @@ class _FileParser:
                     self.findings.append(Finding("error", "bad-header", f"{item.id}: part-of must be a single local id", self.rel, lineno))
                     return
                 parsed = split_qid(parsed)[1]
+            if key == "built" and parsed not in BUILT:
+                self.findings.append(Finding("error", "bad-header",
+                                             f"{item.id}: built must be one of {', '.join(BUILT)}; got {parsed!r}", self.rel, lineno))
+                return
             if key == "status" and parsed not in STATUSES:
                 self.findings.append(Finding("error", "bad-header",
                                              f"{item.id}: status must be one of {', '.join(STATUSES)}; got {parsed!r}", self.rel, lineno))

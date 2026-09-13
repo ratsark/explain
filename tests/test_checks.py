@@ -228,3 +228,39 @@ class AliasTests(SpecCase):
         self.assertEqual(find_alias(spec, "  LAW  16 ").id, "P1")
         self.assertEqual(find_alias(spec, "The Automaticity Doctrine").id, "P1")
         self.assertIsNone(find_alias(spec, "law 17"))
+
+
+class BuildStateTests(SpecCase):
+    def test_built_values_and_reports(self):
+        root = self.make({
+            "L0-purpose.md": "## G1 — One\n",
+            "L1-principles.md": "## P1 — P\nserves: G1\n",
+            "L2-architecture.md": (
+                "## D1 — unstated\nserves: P1\n"
+                "## D2 — roadmap\nserves: P1\nbuilt: unbuilt\n"
+                "## D3 — shipped, unrealized and unguarded\nserves: P1\nbuilt: shipped\n"
+                "## D4 — shipped, realized, guarded\nserves: P1\nbuilt: shipped\n"
+                "## D5 — bad\nserves: P1\nbuilt: done\n"
+                "## D6 — removed\nserves: P1\nbuilt: removed\n"
+            ),
+            "L4-realization.md": "## I1 — impl\nserves: D4\n## L4-V1 — guard\nverifies: D4\n",
+        })
+        _, f = self.check(root)
+        self.assertCode(f, "bad-header", "error", count=1)
+        unserved = sorted(x.message.split()[0] for x in f if x.code == "unserved")
+        self.assertEqual(unserved, ["D1", "D5"])           # unstated build state keeps the old report (D5's built line was rejected)
+        self.assertEqual([x.message.split()[0] for x in f if x.code == "unrealized"], ["D3"])
+        self.assertEqual([x.message.split()[0] for x in f if x.code == "unguarded"], ["D3"])
+        # D2 (unbuilt) and D6 (removed) are neither unserved nor unrealized
+
+    def test_isolated(self):
+        from explain.checks import connectivity
+        from explain.parse import parse_spec
+        root = self.make({
+            "L0-purpose.md": "## G1 — linked\n## G2 — lonely\n## G3 — has a child\n- G3.1 — part\n## G4 — only mentioned\n\nSee [[G4]] from G5.\n## G5 — mentions only\n\nSee [[G4]].\n",
+            "L1-principles.md": "## P1 — P\nserves: G1\n",
+        })
+        spec = parse_spec(root)
+        isolated, built = connectivity(spec)
+        self.assertEqual(sorted(i.id for i in isolated), ["G2", "G4", "G5"])
+        self.assertEqual(built, {"unstated": 7})

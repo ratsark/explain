@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .checks import accept, downstream, export_index, externals, find_alias, inbound, run_checks, suspects, upstream
+from .checks import accept, connectivity, downstream, export_index, externals, find_alias, inbound, run_checks, suspects, upstream
 from .components import Components
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
 
@@ -58,9 +58,14 @@ def cmd_check(args):
             continue
         print(x.format())
     n_items = len(spec.items)
+    isolated, built = connectivity(spec)
     print(f"\n{spec.name or '(unnamed)'}: {n_items} items in {len(spec.levels)} levels; "
           f"{len(errors)} errors, {len(reports)} reports"
           + (" (reports promoted to errors by --strict)" if args.strict and reports else ""))
+    if n_items:
+        pct = 100 * len(isolated) // n_items
+        built_line = ", ".join(f"{k} {v}" for k, v in sorted(built.items(), key=lambda kv: (kv[0] == "unstated", kv[0])))
+        print(f"isolated (no link either way): {len(isolated)} of {n_items} ({pct}%); built: {built_line}")
     if not spec.levels:
         print("note: no L<n>- entries found; nothing was checked beyond the manifest")
     if errors or (args.strict and reports):
@@ -194,6 +199,27 @@ def cmd_orphans(args):
     return 0 if rows else 1
 
 
+def cmd_isolated(args):
+    spec = _spec(args.path)
+    if spec is None:
+        return 2
+    isolated, _ = connectivity(spec)
+    if not isolated:
+        print("no isolated items: every item has at least one link or refinement edge")
+        return 1
+    by_level = {}
+    for it in isolated:
+        by_level.setdefault(it.level, []).append(it)
+    for n in sorted(by_level):
+        rows = sorted(by_level[n], key=lambda i: (str(i.file), i.line))
+        print(f"L{n} ({spec.levels[n].name}): {len(rows)}")
+        for it in rows:
+            print(f"  {it.id:10} {it.title[:70]}  ({it.file}:{it.line})")
+    print(f"{len(isolated)} isolated of {len(spec.items)} ({100 * len(isolated) // len(spec.items)}%). "
+          "This count only falls as items are linked; it cannot be moved by trading one report for another.")
+    return 0
+
+
 def cmd_outline(args):
     spec = _spec(args.path)
     if spec is None:
@@ -322,7 +348,7 @@ def cmd_review(args):
     findings = run_checks(spec)
     by_item = {}
     for x in findings:
-        if x.code in ("orphan", "unserved", "undischarged-assumption", "skip-level", "suspect-link", "derived-from-parent"):
+        if x.code in ("orphan", "unserved", "unrealized", "unguarded", "undischarged-assumption", "skip-level", "suspect-link", "derived-from-parent"):
             by_item.setdefault(x.message.split()[0].rstrip(":,"), []).append(x.code)
     levels = spec.profile.level_numbers()
     if args.level:
@@ -344,7 +370,8 @@ def cmd_review(args):
             continue
         for i in items:
             flags = by_item.get(i.id, [])
-            print(f"\n{i.id} — {i.title}" + (f"  [{i.status}]" if i.status else "") + (f"  ⚑ {', '.join(flags)}" if flags else ""))
+            tag = ", ".join(x for x in (i.status, i.header.get("built")) if x)
+            print(f"\n{i.id} — {i.title}" + (f"  [{tag}]" if tag else "") + (f"  ⚑ {', '.join(flags)}" if flags else ""))
             for rel in ("serves", "assumes", "verifies", "depends-on", "conflicts-with", "supersedes", "discharged-by"):
                 targets = [l.target for l in i.links_of(rel)]
                 if targets:
@@ -470,6 +497,7 @@ def build_parser():
     add("serves", cmd_serves, "everything downstream of ID, transitively (the re-evaluation sweep)", id_arg=True)
     add("why", cmd_why, "the upward chain from ID to the top", id_arg=True)
     add("orphans", cmd_orphans, "items that serve nothing and are not marked derived")
+    add("isolated", cmd_isolated, "items with no link in either direction, by level: the settlement measure that only falls")
     add("outline", cmd_outline, "levels, files, items, and profile sections not yet present")
     s = add("export", cmd_export, "the spec's index JSON for other specs to cite")
     s.add_argument("-o", "--output", help="write to this file instead of stdout")
@@ -492,7 +520,7 @@ def build_parser():
     return p
 
 
-COMMANDS = ("check", "show", "serves", "why", "orphans", "outline", "export", "assumptions", "accept", "drift", "review", "coupling", "interfaces")
+COMMANDS = ("check", "show", "serves", "why", "orphans", "isolated", "outline", "export", "assumptions", "accept", "drift", "review", "coupling", "interfaces")
 
 
 def main(argv=None):
