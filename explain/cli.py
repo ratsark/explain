@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .checks import accept, connectivity, downstream, export_index, externals, find_alias, inbound, run_checks, suspects, upstream
+from .checks import accept, connectivity, downstream, export_index, externals, find_alias, inbound, questions, run_checks, suspects, upstream
 from .components import Components
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
 
@@ -220,6 +220,31 @@ def cmd_isolated(args):
     return 0
 
 
+def cmd_questions(args):
+    spec = _spec(args.path)
+    if spec is None:
+        return 2
+    open_, answered = questions(spec)
+    if not open_ and not answered:
+        print("no questions (kind Q) in this spec")
+        return 1
+    by_level = {}
+    for row in open_:
+        by_level.setdefault(row[0].level, []).append(row)
+    for n in sorted(by_level):
+        print(f"L{n} ({spec.levels[n].name}): {len(by_level[n])} open")
+        for it, blockers, _, subs in sorted(by_level[n], key=lambda r: (str(r[0].file), r[0].line)):
+            print(f"  {it.id:8} {it.title[:72]}" + (f"  [{it.status}]" if it.status else ""))
+            if it.header.get("owner"):
+                print(f"           owner: {it.header['owner']}")
+            if subs:
+                print(f"           parts: {', '.join(subs)}")
+            if blockers:
+                print(f"           blocks: {', '.join(blockers)}")
+    print(f"\n{len(open_)} open, {len(answered)} answered" + (": " + ", ".join(f"{it.id} -> {', '.join(ans) or it.status}" for it, _, ans, _ in answered[:10]) if answered else ""))
+    return 0
+
+
 def cmd_outline(args):
     spec = _spec(args.path)
     if spec is None:
@@ -384,7 +409,7 @@ def cmd_review(args):
             kids = [k for k in spec.items.values() if k.parent_id == i.id]
             if kids:
                 print(f"  refined by: {', '.join(k.id for k in sorted(kids, key=lambda k: _idkey(k.id)))}")
-            for key in ("owner", "source", "refs", "was"):
+            for key in ("owner", "source", "refs", "was", "until", "hides"):
                 if key in i.header:
                     print(f"  {key}: {_fmt(i.header[key])}")
             body = i.body.strip()
@@ -498,6 +523,7 @@ def build_parser():
     add("why", cmd_why, "the upward chain from ID to the top", id_arg=True)
     add("orphans", cmd_orphans, "items that serve nothing and are not marked derived")
     add("isolated", cmd_isolated, "items with no link in either direction, by level: the settlement measure that only falls")
+    add("questions", cmd_questions, "open questions (kind Q) by level, what each blocks, and which answers superseded the rest")
     add("outline", cmd_outline, "levels, files, items, and profile sections not yet present")
     s = add("export", cmd_export, "the spec's index JSON for other specs to cite")
     s.add_argument("-o", "--output", help="write to this file instead of stdout")
@@ -520,7 +546,7 @@ def build_parser():
     return p
 
 
-COMMANDS = ("check", "show", "serves", "why", "orphans", "isolated", "outline", "export", "assumptions", "accept", "drift", "review", "coupling", "interfaces")
+COMMANDS = ("check", "show", "serves", "why", "orphans", "isolated", "questions", "outline", "export", "assumptions", "accept", "drift", "review", "coupling", "interfaces")
 
 
 def main(argv=None):

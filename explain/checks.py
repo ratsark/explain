@@ -341,6 +341,12 @@ def run_checks(spec, ext=None):
             if built == "shipped" and it.id not in verified_by:
                 f.append(Finding("report", "unguarded", f"{it.id} is shipped but nothing verifies it", it.file, it.line))
 
+    # --- questions -------------------------------------------------------------
+    for it in items.values():
+        if it.kind == "Q" and it.status == "adopted":
+            f.append(Finding("report", "question-adopted",
+                             f"{it.id} is a question with status adopted; a question stays proposed until an answer item supersedes it (or it is rejected)", it.file, it.line))
+
     # --- sections ------------------------------------------------------------
     for n, lf in spec.levels.items():
         declared = {t.lower() for t in profile.levels[n].section_titles()}
@@ -382,6 +388,26 @@ def run_checks(spec, ext=None):
 
 
 # --- queries -----------------------------------------------------------------
+
+def questions(spec):
+    """(open questions, answered questions): open = kind Q not superseded/rejected; each with the items that depend on it and the answer that supersedes it."""
+    idx = inbound(spec, ("depends-on",))
+    sup = {}
+    for it in spec.items.values():
+        for l in it.links_of("supersedes"):
+            q = split_qid(l.target)
+            if q and q[0] in (None, spec.name):
+                sup.setdefault(q[1], []).append(it.id)
+    open_, answered = [], []
+    for it in spec.items.values():
+        if it.kind != "Q" or it.parent_id:
+            continue
+        blockers = sorted({o.id for o, _ in idx.get(it.id, [])})
+        subs = sorted(k.id for k in spec.items.values() if k.parent_id == it.id)
+        row = (it, blockers, sup.get(it.id, []), subs)
+        (answered if it.status in ("superseded", "rejected") else open_).append(row)
+    return open_, answered
+
 
 def connectivity(spec):
     """(isolated items, built-state counts). Isolated: no link in either direction and no refinement

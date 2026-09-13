@@ -60,6 +60,7 @@ HEADER_FIELDS = {
     "source": "where the body's authority comes from",
     "refs": "paths into code, tests, docs",
     "aka": "other names this item is cited by (free text, e.g. 'law 16'); unique across the spec; resolvable by show/why/serves",
+    "until": "the condition under which this item stops serving its end (free text); a means-ends link is valid only while it holds",
     "component": "true to declare this item a component: its dotted sub-items are inside it, and other items may declare part-of it",
     "part-of": "the component this item belongs to (an item id); items without one are cross-cutting",
     "interface": "true on the items that are a component's published surface: the only things another component may link to",

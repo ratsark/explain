@@ -125,7 +125,7 @@ declared reports; every claim in the old ARCHITECTURE.md has an item id.
 
 Candidates surfaced by the first full transcription (see the project's
 `spec/TRANSCRIPTION.md` once landed): `built:` landed 2026-09-13 with the
-unrealized/unguarded split and the isolated count; a question kind or
-status with a `questions` command, since every family carries open owner
-questions; an `until:` field for "stops serving its end when"; a `due:` field
-for time-bound obligations; a first-class provenance field. HTML render.
+unrealized/unguarded split and the isolated count; the `Q` kind with
+`questions` and the `until:` field landed 2026-09-13 (section 14); still
+open: a `due:` field for time-bound obligations (probably the tracker's job);
+a first-class provenance field. HTML render.

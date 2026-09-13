@@ -43,6 +43,7 @@ python3 -m explain serves G1 examples/cas         # everything downstream, trans
 python3 -m explain why D2 examples/cas            # the upward chain, into the parent spec
 python3 -m explain orphans examples/cas
 python3 -m explain isolated examples/cas         # items with no link either way, by level
+python3 -m explain questions examples/cas        # open questions (kind Q), what each blocks
 python3 -m explain outline examples/cas           # levels, files, items, sections not yet present
 python3 -m explain export -o cas.index.json examples/cas
 python3 -m explain assumptions examples/cas

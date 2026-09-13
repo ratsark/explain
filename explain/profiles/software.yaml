@@ -8,6 +8,7 @@ free-kinds: # allowed at any level; the level comes from the path; a written L<n
   X: limitation # an accepted gap or carried defect
   H: hazard # a named risk with a measurement
   E: evaluation criterion
+  Q: open question # proposed until an answer item supersedes it; items waiting on it say depends-on
 levels:
   - n: 0
     name: purpose

@@ -79,7 +79,7 @@ class ErrorTests(SpecCase):
         self.assertNoCode(f, "unknown-kind")
 
     def test_unknown_kind_and_wrong_level(self):
-        root = self.make({"L0-purpose.md": L0 + "## Q1 — no such kind\n## P1 — principle at L0\n"})
+        root = self.make({"L0-purpose.md": L0 + "## Z1 — no such kind\n## P1 — principle at L0\n"})
         _, f = self.check(root)
         self.assertCode(f, "unknown-kind", "error", count=1)
         self.assertCode(f, "kind-at-wrong-level", "error", count=1)
@@ -271,3 +271,26 @@ class BuildStateTests(SpecCase):
         isolated, built = connectivity(spec)
         self.assertEqual(sorted(i.id for i in isolated), ["G2", "G4", "G5"])
         self.assertEqual(built, {"unstated": 7})
+
+
+class QuestionTests(SpecCase):
+    def test_questions_and_until(self):
+        from explain.checks import questions
+        from explain.parse import parse_spec
+        root = self.make({
+            "L0-purpose.md": "## G1 — One\n",
+            "L2-architecture.md": (
+                "## Q1 — Does the valley pause during sleep?\nstatus: proposed\nowner: the owner\n\n- Q1.1 — and the herd?\n"
+                "## Q2 — Answered one\nstatus: superseded\n"
+                "## Q3 — Wrongly adopted\nstatus: adopted\n"
+                "## D1 — Sleep\nserves: G1\ndepends-on: Q1\nuntil: the band ever needs a night shift\n"
+                "## D2 — The answer\nserves: G1\nsupersedes: Q2\n"
+            ),
+        })
+        spec, f = self.check(root)
+        self.assertNoErrors(f)
+        self.assertCode(f, "question-adopted", "report", count=1)
+        open_, answered = questions(spec)
+        self.assertEqual([(it.id, b, s) for it, b, _, s in open_], [("Q1", ["D1"], ["Q1.1"]), ("Q3", [], [])])
+        self.assertEqual([(it.id, ans) for it, _, ans, _ in answered], [("Q2", ["D2"])])
+        self.assertEqual(spec.items["D1"].header["until"], "the band ever needs a night shift")

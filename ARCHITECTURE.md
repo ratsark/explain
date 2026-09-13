@@ -198,6 +198,7 @@ Header-only fields:
 | `part-of` | The component this item belongs to. Items with no component are cross-cutting. |
 | `interface` | `true` on the items that are a component's published surface: the only things inside it another component may link to. |
 | `hides` | The design decision this component encapsulates, one line (Parnas's secret). Declares the item a component. |
+| `until` | The condition under which this item stops serving its end, one line. A means-ends link is valid only while it holds; `review` prints it beside the links. |
 
 Inverses are never written. `served-by`, `assumed-by`, `verified-by`, and
 `depended-on-by` are computed. Hand-written bidirectional links are where every
@@ -232,6 +233,7 @@ free-kinds:                  # allowed at any level; a written L<n>- prefix is c
   X: limitation              # an accepted gap ("L" is reserved for level prefixes)
   H: hazard                  # a named risk with a measurement
   E: evaluation criterion
+  Q: open question           # proposed until an answer item supersedes it
 levels:
   - n: 0
     name: purpose
@@ -334,6 +336,7 @@ Commands, v0:
 | `explain why ID` | The upward chain to L0 and into parents. |
 | `explain orphans` | Items at L1+ with no `serves` and no `derived`. |
 | `explain isolated` | Items with no link in either direction, by level. The settlement measure that only falls: it cannot be moved by trading one report class for another. |
+| `explain questions` | Open questions (kind `Q`) by level, what each blocks (`depends-on` it), and which answers superseded the rest. |
 | `explain outline` | Levels, files, items, one line each; profile sections not yet present. |
 | `explain export` | The spec's index JSON for other specs to cite. |
 | `explain allocations` | Parent view: per item, the child items that serve it. |
@@ -498,3 +501,22 @@ property visible and checkable.
   the boundary and cycle reports with `--strict`, or asserts in its own check
   that crossings do not increase. Design coupling is not code coupling: an
   `I` row's `refs` are where a code-level import check should attach later.
+
+## 14. Questions and conditions
+
+Two things every real corpus carried that the first format could not name.
+
+- **Open questions** are items of kind `Q`, allowed at any level, status
+  `proposed` while open. An item that waits on the answer says
+  `depends-on: Q3`. When the answer arrives it is an ordinary item (a ruling,
+  a decision) that `supersedes: Q3`, and the question's status becomes
+  superseded, so the record keeps both the question and the answer.
+  `explain questions` lists the open ones by level with what each blocks: the
+  owner's review flow starts from the decisions still needed rather than from
+  the rows already settled.
+- **`until:`** records the condition under which an item stops serving its end.
+  A means-ends link is only valid under stated conditions; this field names
+  them, one line, in the item's own words ("stops serving when cards accumulate
+  that no day made urgent"). It is the design-level twin of the rule that a
+  guard must state the assumption it monitors, and `review` prints it beside
+  the links so a reader can ask whether the condition has already been met.

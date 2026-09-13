@@ -181,3 +181,18 @@ class IsolatedCliTests(SpecCase):
         with contextlib.redirect_stdout(out):
             main(["check", str(root)])
         self.assertIn("isolated (no link either way): 1 of 3 (33%); built: shipped 1, unstated 2", out.getvalue())
+
+
+class QuestionsCliTests(SpecCase):
+    def test_questions_command(self):
+        import contextlib, io
+        root = self.make({"L0-purpose.md": "## G1 — One\n", "L3-specs.md": "## Q7 — Which parent?\nstatus: proposed\n## S1 — waits\nserves: G1\ndepends-on: Q7\n"})
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["questions", str(root)])
+        self.assertEqual(code, 0)
+        self.assertIn("Q7", out.getvalue()); self.assertIn("blocks: S1", out.getvalue()); self.assertIn("1 open, 0 answered", out.getvalue())
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["questions", str(self.make({"L0-purpose.md": "## G1 — One\n"}, subdir="none"))])
+        self.assertEqual(code, 1)
