@@ -464,7 +464,9 @@ property visible and checkable.
   component A to an item inside a different component B must target B itself
   or one of B's interface items. Reaching up into an enclosing component is
   fine; reaching into a sibling's or a child's internals is reported as a
-  **boundary crossing**. Links to cross-cutting items are never crossings.
+  **boundary crossing**. Links to cross-cutting items are never crossings, and a
+  cross-cutting item that links into a component's internals is not a
+  crossing either: `coupling` lists it as a candidate for `part-of`.
   `verifies`, `conflicts-with` and `supersedes` are exempt: a guard may look
   inside, and lateral bookkeeping is not a dependency. Components that depend
   on each other in a cycle are reported.

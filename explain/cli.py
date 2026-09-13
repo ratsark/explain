@@ -396,6 +396,12 @@ def cmd_coupling(args):
     crossings = comps.crossings()
     print(f"boundary crossings: {len(crossings)}" + ("".join(f"\n  {s.id} {l.relation} {l.target}  ({cx} -> inside {cy})" for s, l, cx, cy in crossings[:20]))
           + ("\n  ..." if len(crossings) > 20 else ""))
+    ua = comps.unassigned_inside()
+    print(f"\nitems outside every component that link into a component's internals (candidates for part-of): {len(ua)}")
+    for iid, cs in ua[:20]:
+        print(f"  {iid:8} -> inside {', '.join(cs)}  {spec.items[iid].title[:50]}")
+    if len(ua) > 20:
+        print("  ...")
     cc = comps.cross_cutting()
     print(f"\ncross-cutting items (outside every component) linked from more than one component: {sum(1 for _, s in cc if len(s) > 1)}")
     for tid, s in cc[:15]:

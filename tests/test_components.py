@@ -22,7 +22,7 @@ L2 = (
     "### D3.1 — View\ndepends-on: D2.2\n\n"
     "## D4 — Loose interface\ninterface: true\n"
 )
-L3 = "## S1 — Ruling inside engine\npart-of: D1\nserves: D1\n## S2 — Cross-cutting rule\nserves: G1\n"
+L3 = "## S1 — Ruling inside engine\npart-of: D1\nserves: D1\n## S2 — Cross-cutting rule\nserves: G1\n## S3 — Unassigned, reaches inside\nserves: D1.2\n"
 
 
 class ComponentTests(SpecCase):
@@ -52,6 +52,9 @@ class ComponentTests(SpecCase):
         self.assertNotIn("D2.2", msgs)                              # via interface D1.1: fine
         self.assertNotIn("S1 ", msgs)                               # S1 serves its own component node
         self.assertNotIn("D3.1", msgs)                              # reaching up into the enclosing component: fine
+        self.assertNotIn("S3", msgs)                                # unassigned source: a hint, not a crossing
+        spec = parse_spec(self.spec())
+        self.assertEqual(Components(spec).unassigned_inside(), [("S3", ["D1"])])
         self.assertCode(f, "interface-without-component", "report", count=1)
         self.assertCode(f, "section-prose-only", "report", count=1)  # Mission holds prose only
         self.assertNoCode(f, "component-cycle")

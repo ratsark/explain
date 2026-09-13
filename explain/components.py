@@ -80,7 +80,7 @@ class Components:
         return self.spec.items.get(q[1])
 
     def classify(self, src, link):
-        """'internal' | 'up' | 'node' | 'interface' | 'outside' | 'crossing' | None (unresolvable)."""
+        """'internal' | 'up' | 'node' | 'interface' | 'outside' | 'unassigned' | 'crossing' | None (unresolvable)."""
         tgt = self._local_target(link)
         if tgt is None:
             return None
@@ -89,6 +89,8 @@ class Components:
             return "node"
         if cy is None:
             return "outside"
+        if cx is None:
+            return "unassigned"   # a cross-cutting item reaching inside a component: probably belongs to it
         if cy == cx:
             return "internal"
         if cy in self.chain(cx):
@@ -105,6 +107,17 @@ class Components:
                     tgt = self._local_target(link)
                     out.append((it, link, self.src(it.id), self.of(tgt.id)))
         return out
+
+    def unassigned_inside(self):
+        """Items outside every component whose links reach a component's internals: candidates for part-of."""
+        out = {}
+        for it in self.spec.items.values():
+            if self.src(it.id) is not None:
+                continue
+            for link in it.links:
+                if link.relation in BOUNDARY_RELATIONS and self.classify(it, link) == "unassigned":
+                    out.setdefault(it.id, set()).add(self.of(self._local_target(link).id))
+        return sorted(((iid, sorted(cs)) for iid, cs in out.items()), key=lambda x: x[0])
 
     def component_edges(self):
         """{(from_component, to_component): count} over boundary relations, nearest components, neither enclosing the other."""
