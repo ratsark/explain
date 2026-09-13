@@ -1,0 +1,66 @@
+# The business profile: a business proposition and the product that realizes it.
+# Same kind letters as the software profile so the tool needs no change; the
+# levels and sections carry the domain. Free kinds (V A X H E Q) sit at any level.
+name: business
+free-kinds:
+  V: verification # metrics, experiments, audits: how a level's claims are checked
+  A: assumption # a fact about customers, the market, partners or technology that this level relies on
+  X: limitation # an accepted gap
+  H: hazard # a named risk with a measurement or a trigger
+  E: evaluation criterion # how a level's items are judged (targets, bars, thresholds)
+  Q: open question # proposed until an answer item supersedes it
+levels:
+  - n: 0
+    name: purpose
+    kinds:
+      G: goal # what the venture is for
+      C: constraint # pass/fail; never traded for goal progress (legal, ethical, capital, brand)
+      R: requirement # what the proposition must do to count as success
+    sections:
+      - Mission
+      - Market thesis
+      - Goals
+      - Constraints
+      - Requirements
+      - Customers and market
+      - Limitations
+      - Risks
+      - Evaluation criteria and priorities
+  - n: 1
+    name: strategy
+    kinds:
+      P: principle # strategy principles: how the venture chooses, competes and refuses
+      N: never rule # what the venture will not do
+    sections:
+      - Principles
+      - Positioning
+      - Never-list
+  - n: 2
+    name: model
+    kinds:
+      D: design element # the business model and the product definition: offer, channels, pricing, partners, components, interfaces
+    sections:
+      - Offer
+      - Customers and channels
+      - Revenue and pricing
+      - Product definition
+      - Components
+      - Interfaces
+      - Partners and suppliers
+  - n: 3
+    name: plans
+    kinds:
+      S: spec # decisions, plans, milestones, policies
+    sections:
+      - Decisions
+      - Plans and milestones
+      - Policies
+      - Pending the owner
+  - n: 4
+    name: execution
+    kinds:
+      I: implementation # initiatives, artifacts, contracts, the things that exist
+    sections:
+      - Initiatives
+      - Metrics and experiments
+      - Operations

@@ -196,3 +196,39 @@ class QuestionsCliTests(SpecCase):
         with contextlib.redirect_stdout(out):
             code = main(["questions", str(self.make({"L0-purpose.md": "## G1 — One\n"}, subdir="none"))])
         self.assertEqual(code, 1)
+
+
+class InitTests(SpecCase):
+    def run_cli(self, *argv):
+        import contextlib, io
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_init_business_then_check(self):
+        target = self.tmp / "venture"
+        code, out, _ = self.run_cli("init", "venture", str(target), "--profile", "business", "--title", "A venture")
+        self.assertEqual(code, 0, out)
+        names = sorted(p.name for p in target.iterdir())
+        self.assertEqual(names, ["L0-purpose.md", "L1-strategy.md", "L2-model.md", "L3-plans.md", "L4-execution.md", "README.md", "spec.yaml"])
+        self.assertIn("## Market thesis", (target / "L0-purpose.md").read_text())
+        self.assertIn("profile: business", (target / "spec.yaml").read_text())
+        code, out, _ = self.run_cli("check", str(target))
+        self.assertEqual(code, 0, out)
+        self.assertIn("0 errors", out)
+        self.assertNotIn("sections-absent", out)
+        # a first item at L0 and a strategy principle serving it
+        (target / "L0-purpose.md").write_text((target / "L0-purpose.md").read_text() + "\n## G1 — Sell one thing well\nstatus: draft\n", encoding="utf-8")
+        (target / "L1-strategy.md").write_text((target / "L1-strategy.md").read_text() + "\n## P1 — Charge for the outcome, not the hours\nserves: G1\n", encoding="utf-8")
+        code, out, _ = self.run_cli("why", "P1", str(target))
+        self.assertEqual(code, 0); self.assertIn("G1 — Sell one thing well", out)
+
+    def test_init_refuses_bad_name_and_nonempty_dir(self):
+        code, _, err = self.run_cli("init", "Bad Name", str(self.tmp / "x"))
+        self.assertEqual(code, 2)
+        (self.tmp / "y").mkdir(); (self.tmp / "y" / "f").write_text("x")
+        code, _, err = self.run_cli("init", "y", str(self.tmp / "y"))
+        self.assertEqual(code, 2); self.assertIn("not empty", err)
+        code, _, err = self.run_cli("init", "z", str(self.tmp / "z"), "--profile", "nope")
+        self.assertEqual(code, 2)

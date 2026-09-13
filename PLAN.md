@@ -102,8 +102,9 @@ per parent element; a real nested pair links both ways.
 
 ## Phase 4 — Review flow, profiles, handover _(not started)_
 
-`status` handling and an `explain review` walk per level; `adopted-through` in
-the manifest; a second profile for a business-proposition domain; the
+`status` handling and an `explain review` walk per level (landed); `adopted-through` in
+the manifest; the `business` profile and `init` scaffold (landed 2026-09-13,
+for the user's business-and-product pair, a separate private project); the
 `leveson` reference profile. Handover in the first project: its agents write
 L2 and L3 rows as they touch them; its earlier index tool retired once
 `explain` answers everything it did; its earlier L0/L1 files retired in favour

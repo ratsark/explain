@@ -293,7 +293,13 @@ per-level `V` kind and the `verifies` link. `outline` lists which profile
 sections a level has not yet filled in, which is what "elided until it comes
 up" needs to stay honest.
 
-The Leveson seven-level set will ship as a second profile, `leveson`, mostly as
+A second shipped profile, `business` (2026-09-13), keeps the same kind letters
+and renames the levels for a venture and the product that realizes it:
+purpose (mission, market thesis, goals, constraints, requirements, customers
+and market), strategy (principles, positioning, never-list), model (offer,
+channels, pricing, product definition, components, interfaces, partners),
+plans (decisions, milestones, policies) and execution (initiatives, metrics
+and experiments, operations). The Leveson seven-level set may follow as
 documentation of the mapping.
 
 ## 8. Nesting
@@ -334,6 +340,7 @@ Commands, v0:
 
 | Command | Answers |
 |---|---|
+| `explain init NAME [DIR] --profile P` | Scaffold a new spec: manifest, one file per level with the profile's sections, a README stub. |
 | `explain check [path]` | All errors and reports for a spec, with file and line. Exit 1 on errors, 0 otherwise; `--strict` promotes reports. |
 | `explain show ID` | "What is G2": heading, header, body, location, computed inverses. |
 | `explain serves ID` | Everything downstream, transitively. The re-evaluation sweep. |

@@ -36,6 +36,7 @@ projects keep their own corpus checks in their own repos.
 ## Run
 
 ```
+python3 -m explain init venture --profile business  # scaffold a new spec directory
 python3 -m explain check examples/cas             # errors and reports; exit 1 on errors
 python3 -m explain check --strict --quiet PATH    # release-gate mode: reports fail; errors only printed
 python3 -m explain show G2 examples/cas           # what is G2 (case-insensitive; old ids via was:)

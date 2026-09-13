@@ -18,6 +18,11 @@ python3 -m explain serves G1 examples/cas  # the re-evaluation sweep
 Python 3.9+, standard library only. Copy the `explain/` directory into any
 repo's `tools/` to use it there.
 
+**Starting a spec:** `python3 -m explain init myspec --profile software` (or
+`--profile business`) scaffolds a directory with a manifest, one file per level
+holding the profile's sections, and a README of the rules. Fill L0, run
+`check`, and work downward. Two specs nest by naming each other in `spec.yaml`.
+
 ## Bugs, feature requests, questions
 
 File a GitHub issue on this repo; it is watched, and replies come back on the

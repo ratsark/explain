@@ -9,6 +9,7 @@ from pathlib import Path
 from . import __version__
 from .checks import accept, allocations, connectivity, downstream, export_index, externals, find_alias, inbound, questions, run_checks, suspects, upstream
 from .components import Components
+from .profile import PROFILE_DIR, ProfileError, load_profile
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
 
 
@@ -276,6 +277,52 @@ def cmd_allocations(args):
     if design:
         print(f"\n{len(realized)} of {len(design)} design elements are served by a child item; not yet: "
               + (", ".join(i.id for i in sorted(unrealized, key=lambda i: _idkey(i.id))) or "none"))
+    return 0
+
+
+def cmd_init(args):
+    """Scaffold a new spec: manifest, one file per level with the profile's sections, a README stub."""
+    try:
+        profile = load_profile(args.profile)
+    except ProfileError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    if not re.match(r"^[a-z][a-z0-9_-]*$", args.name):
+        print("error: name must be lowercase letters, digits, - or _ (it is the namespace other specs cite)", file=sys.stderr)
+        return 2
+    root = Path(args.path) if args.path else Path(args.name)
+    if root.exists() and any(root.iterdir()):
+        print(f"error: {root} exists and is not empty", file=sys.stderr)
+        return 2
+    root.mkdir(parents=True, exist_ok=True)
+    title = args.title or args.name
+    (root / "spec.yaml").write_text(
+        f"name: {args.name}\ntitle: {title}\nprofile: {profile.name}\nadopted-through: L0\n"
+        "# parents:\n#   other-spec:\n#     path: ../other-spec        # or index: parents/other-spec.index.json\n"
+        "# children:\n#   - path: ../child-spec\n", encoding="utf-8")
+    for n in profile.level_numbers():
+        lv = profile.levels[n]
+        kinds = ", ".join(f"`{k}` {v}" for k, v in lv.kinds.items())
+        free = ", ".join(f"`{k}`" for k in profile.per_level_kinds)
+        lines = [f"# L{n} — {lv.name.capitalize()}", "",
+                 f"Kinds at this level: {kinds}. Free kinds ({free}) may sit here too.",
+                 "An item is `## G1 — Title` with `key: value` lines directly under it; `serves:` names the",
+                 "ends it exists for, one level up. Sections below are optional; delete the ones", "you do not need.", ""]
+        for title_, subs in lv.sections:
+            lines += [f"## {title_}", ""]
+            for s in subs:
+                lines += [f"### {s}", ""]
+        (root / f"L{n}-{lv.name}.md").write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    (root / "README.md").write_text(
+        f"# {title}\n\nA spec in the explain format (https://github.com/ratsark/explain), profile `{profile.name}`.\n\n"
+        "Check it with `explain check .` from this directory (or `python3 path/to/explain check .`).\n"
+        "`explain review L0 .` walks a level; `explain why ID .` climbs to the goals; `explain questions .`\n"
+        "lists the open questions; `explain accept --all .` starts drift tracking once the links have been read.\n\n"
+        "Rules that matter: links are typed wherever they appear (`serves: G2` or `[[serves G2]]`); a kind\n"
+        "letter implies its level, so ids never carry a level; errors mean the graph is broken, reports mean\n"
+        "it is incomplete and never fail; `serves:` is never guessed.\n", encoding="utf-8")
+    print(f"created {root}/ with spec.yaml, {len(profile.levels)} level files and README.md (profile {profile.name})")
+    print(f"next: fill L0-{profile.levels[profile.level_numbers()[0]].name}.md, then `explain check {root}`")
     return 0
 
 
@@ -563,6 +610,12 @@ def build_parser():
     s.add_argument("-o", "--output", help="write to this file instead of stdout")
     add("assumptions", cmd_assumptions, "every assumption, what discharges it, who assumes it")
     add("allocations", cmd_allocations, "the parent's view: which child items serve each item here, and which child assumptions this spec discharges")
+    s = sub.add_parser("init", help="scaffold a new spec: manifest, one file per level with the profile's sections, README")
+    s.add_argument("name", help="the spec's name (lowercase; the namespace other specs cite)")
+    s.add_argument("path", nargs="?", help="directory to create (default: ./<name>)")
+    s.add_argument("--profile", default="software", help="shipped profile name or a profile file (default: software; also: " + ", ".join(sorted(p.stem for p in PROFILE_DIR.glob("*.yaml"))) + ")")
+    s.add_argument("--title", help="human title for the manifest")
+    s.set_defaults(fn=cmd_init)
     s = sub.add_parser("accept", help="record that the links from ID... (or --all) were read against their targets as they are now")
     s.add_argument("targets", nargs="*", help="item ids, optionally followed by the spec directory")
     s.add_argument("--all", action="store_true", help="every link in the spec")
@@ -581,7 +634,7 @@ def build_parser():
     return p
 
 
-COMMANDS = ("check", "show", "serves", "why", "orphans", "isolated", "questions", "outline", "export", "assumptions", "allocations", "accept", "drift", "review", "coupling", "interfaces")
+COMMANDS = ("check", "show", "serves", "why", "orphans", "isolated", "questions", "outline", "export", "assumptions", "allocations", "accept", "drift", "review", "coupling", "interfaces", "init")
 
 
 def main(argv=None):
