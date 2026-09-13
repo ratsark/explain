@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .checks import accept, connectivity, downstream, export_index, externals, find_alias, inbound, questions, run_checks, suspects, upstream
+from .checks import accept, allocations, connectivity, downstream, export_index, externals, find_alias, inbound, questions, run_checks, suspects, upstream
 from .components import Components
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
 
@@ -242,6 +242,40 @@ def cmd_questions(args):
             if blockers:
                 print(f"           blocks: {', '.join(blockers)}")
     print(f"\n{len(open_)} open, {len(answered)} answered" + (": " + ", ".join(f"{it.id} -> {', '.join(ans) or it.status}" for it, _, ans, _ in answered[:10]) if answered else ""))
+    return 0
+
+
+def cmd_allocations(args):
+    spec = _spec(args.path)
+    if spec is None:
+        return 2
+    served, obligations, unresolved = allocations(spec)
+    if not (spec.manifest.get("children") or []):
+        print("no children declared in spec.yaml")
+        return 1
+    for u in unresolved:
+        print(f"child at {u}: no spec.yaml there")
+    if not served and not obligations:
+        print("no child item serves anything here yet, and no child assumption is discharged here")
+        return 1
+    print("parent items realized by children (parent item <- child items that serve it):")
+    for pid in sorted(served, key=_idkey):
+        it = spec.items.get(pid)
+        title = it.title if it else "(no such item here)"
+        print(f"  {pid:8} {title[:60]}")
+        for cname, cit in sorted(served[pid], key=lambda x: (x[0], _idkey(x[1].id))):
+            print(f"      <- {cname}:{cit.id:8} {cit.title[:60]}")
+    if obligations:
+        print("\nobligations: child assumptions this spec's items discharge")
+        for cname, a, pid in sorted(obligations, key=lambda x: (x[0], _idkey(x[1].id))):
+            it = spec.items.get(pid)
+            print(f"  {cname}:{a.id:8} {a.title[:50]}  discharged-by {pid}" + (f" ({it.title[:40]})" if it else " (no such item here)"))
+    realized = set(served)
+    design = [i for i in spec.items.values() if i.kind == "D" and i.parent_id is None]
+    unrealized = [i for i in design if i.id not in realized]
+    if design:
+        print(f"\n{len(realized)} of {len(design)} design elements are served by a child item; not yet: "
+              + (", ".join(i.id for i in sorted(unrealized, key=lambda i: _idkey(i.id))) or "none"))
     return 0
 
 
@@ -528,6 +562,7 @@ def build_parser():
     s = add("export", cmd_export, "the spec's index JSON for other specs to cite")
     s.add_argument("-o", "--output", help="write to this file instead of stdout")
     add("assumptions", cmd_assumptions, "every assumption, what discharges it, who assumes it")
+    add("allocations", cmd_allocations, "the parent's view: which child items serve each item here, and which child assumptions this spec discharges")
     s = sub.add_parser("accept", help="record that the links from ID... (or --all) were read against their targets as they are now")
     s.add_argument("targets", nargs="*", help="item ids, optionally followed by the spec directory")
     s.add_argument("--all", action="store_true", help="every link in the spec")
@@ -546,7 +581,7 @@ def build_parser():
     return p
 
 
-COMMANDS = ("check", "show", "serves", "why", "orphans", "isolated", "questions", "outline", "export", "assumptions", "accept", "drift", "review", "coupling", "interfaces")
+COMMANDS = ("check", "show", "serves", "why", "orphans", "isolated", "questions", "outline", "export", "assumptions", "allocations", "accept", "drift", "review", "coupling", "interfaces")
 
 
 def main(argv=None):

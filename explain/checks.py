@@ -409,6 +409,31 @@ def questions(spec):
     return open_, answered
 
 
+def allocations(spec):
+    """The parent's view: for each declared child (by path), the child's items that serve this spec's
+    items, and the child's assumptions this spec's items discharge. Returns
+    ({parent_id: [(child_name, child_item)]}, [(child_name, assumption, [parent ids])], [child names unresolved])."""
+    served, obligations, unresolved = {}, [], []
+    for conf in spec.manifest.get("children") or []:
+        if not isinstance(conf, dict) or not conf.get("path"):
+            continue
+        p = (spec.root / str(conf["path"])).resolve()
+        if not (p / "spec.yaml").is_file():
+            unresolved.append(str(conf["path"]))
+            continue
+        child = parse_spec(p)
+        for it in child.items.values():
+            for link in it.links:
+                q = split_qid(link.target)
+                if q is None or q[0] != spec.name:
+                    continue
+                if link.relation == "serves":
+                    served.setdefault(q[1], []).append((child.name, it))
+                elif link.relation == "discharged-by" and it.kind == "A":
+                    obligations.append((child.name, it, q[1]))
+    return served, obligations, unresolved
+
+
 def connectivity(spec):
     """(isolated items, built-state counts). Isolated: no link in either direction and no refinement
     parent or child; mentions do not count. Cross-spec links count as outgoing."""

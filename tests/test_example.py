@@ -58,3 +58,21 @@ class ParentSpecTests(unittest.TestCase):
         self.assertEqual(codes["orphan"], 0)
         self.assertEqual(codes["undischarged-assumption"], 1)   # A1: ATC separation is assumed
         self.assertEqual(codes["skip-level"], 0)
+
+
+class AllocationTests(unittest.TestCase):
+    def test_parent_allocations(self):
+        import contextlib, io
+        from explain.checks import allocations
+        from explain.cli import main
+        spec = parse_spec(EXAMPLES / "aircraft")
+        served, obligations, unresolved = allocations(spec)
+        self.assertEqual(unresolved, [])
+        self.assertEqual(sorted((c, i.id) for c, i in served["D1"]), [("cas", "G1"), ("cas", "G2")])
+        self.assertEqual([(c, a.id, p) for c, a, p in obligations], [("cas", "A1", "D2")])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["allocations", str(EXAMPLES / "aircraft")])
+        self.assertEqual(code, 0)
+        self.assertIn("D1", out.getvalue()); self.assertIn("cas:G1", out.getvalue()); self.assertIn("discharged-by D2", out.getvalue())
+        self.assertIn("1 of 3 design elements", out.getvalue())

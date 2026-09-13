@@ -92,10 +92,10 @@ is reported as suspect links; the project's agents have reviewed their areas.
 
 The public example is a nested pair, `examples/aircraft` and `examples/cas`,
 exercising `serves: parent:ID`, `discharged-by`, derived child goals, the
-parent citing a child item, and index-snapshot staleness. Remaining: the
-parent's `allocations` view; a real nested pair (the first project's business
-proposition as its parent, which is also the first non-software profile),
-when the user has time to author it.
+parent citing a child item, index-snapshot staleness, and (2026-09-13) the
+parent's `allocations` view. Remaining: a real nested pair (the first
+project's business proposition as its parent, which is also the first
+non-software profile), when the user has time to author it.
 
 **Acceptance:** `allocations` on `examples/aircraft` lists the child's items
 per parent element; a real nested pair links both ways.

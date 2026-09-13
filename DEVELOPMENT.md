@@ -48,6 +48,7 @@ python3 -m explain questions examples/cas        # open questions (kind Q), what
 python3 -m explain outline examples/cas           # levels, files, items, sections not yet present
 python3 -m explain export -o cas.index.json examples/cas
 python3 -m explain assumptions examples/cas
+python3 -m explain allocations examples/aircraft  # the parent's view of its children
 python3 -m explain accept --all examples/cas      # start tracking drift: record every link's target fingerprint
 python3 -m explain accept P2 examples/cas         # after re-reading P2 against its changed targets
 python3 -m explain drift examples/cas             # accepted links whose targets changed; what to re-read

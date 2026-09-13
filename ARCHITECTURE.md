@@ -345,6 +345,7 @@ Commands, v0:
 | `explain export` | The spec's index JSON for other specs to cite. |
 | `explain allocations` | Parent view: per item, the child items that serve it. |
 | `explain assumptions` | Every `A` item and what discharges it. |
+| `explain allocations` | The parent's view: for each item here, the child items (from `children:` in the manifest) that serve it; the child assumptions this spec discharges; design elements no child serves yet. |
 | `explain accept ID... \| --all` | Record that the links from these items were read against their targets as they are now (section 12). |
 | `explain drift` | Accepted links whose targets changed since: what to re-read, grouped by changed target. |
 | `explain review [L1]` | Walk a level item by item: status, links with target titles, flags, body. No level: status counts per level against `adopted-through`. |
