@@ -82,6 +82,7 @@ DECLARED_MISSES = [
     "Cross-spec targets are resolved through a parent's 'path' or 'index'; a namespace with neither is reported as unresolvable, not checked.",
     "A fingerprint covers an item's title and body and its refinements' (dotted sub-items), not its header fields: a status change never makes dependants suspect, and a change to a linked-to item's own links does not either.",
     "Drift is only detected for links that have been accepted (accepted-links.txt); links never accepted are counted, not checked.",
+    "A free kind (declared under free-kinds: V, A, X, H, E in the shipped profile) may sit at any level; its id needs no level prefix, and a written prefix (L4-V1) is checked against the path.",
     "Prose outside any item has no fingerprint: drift in it is invisible. A profile section holding prose but no items is reported so the author can make the prose an item.",
     "Boundary checks cover serves, depends-on and assumes between local items; verifies, conflicts-with, supersedes and cross-spec links are not boundary-checked.",
 ]

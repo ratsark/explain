@@ -179,10 +179,7 @@ def run_checks(spec, ext=None):
     # --- ids and kinds ------------------------------------------------------
     for it in items.values():
         if it.kind in profile.per_level_kinds:
-            if it.prefix_level is None:
-                f.append(Finding("error", "missing-level-prefix",
-                                 f"{it.id}: kind {it.kind} is per-level; write it as L{it.level}-{it.id}", it.file, it.line))
-            elif it.prefix_level != it.level:
+            if it.prefix_level is not None and it.prefix_level != it.level:
                 f.append(Finding("error", "wrong-level-prefix",
                                  f"{it.id}: prefix says L{it.prefix_level} but the file is at L{it.level}", it.file, it.line))
         else:

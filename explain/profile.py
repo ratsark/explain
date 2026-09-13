@@ -28,7 +28,7 @@ class Profile:
     def __init__(self, name, levels, per_level_kinds):
         self.name = name
         self.levels = {lv.n: lv for lv in levels}
-        self.per_level_kinds = per_level_kinds  # {letter: description}
+        self.per_level_kinds = per_level_kinds  # {letter: description}: kinds allowed at any level (free kinds)
         self.kind_level = {}                     # fixed kinds: letter -> n
         for lv in levels:
             for k in lv.kinds:
@@ -67,9 +67,9 @@ def load_profile_data(data, source="<profile>"):
     if not isinstance(data, dict) or "levels" not in data:
         raise ProfileError(f"{source}: a profile needs a 'levels' list")
     name = data.get("name") or source
-    per_level = data.get("per-level-kinds") or {}
+    per_level = data.get("free-kinds") or data.get("per-level-kinds") or {}
     if not isinstance(per_level, dict):
-        raise ProfileError(f"{source}: per-level-kinds must be a mapping")
+        raise ProfileError(f"{source}: free-kinds must be a mapping")
     seen = {}
     levels = []
     for raw in data["levels"]:
@@ -86,7 +86,7 @@ def load_profile_data(data, source="<profile>"):
         for k in kinds:
             _check_kind_letter(k, source)
             if k in per_level:
-                raise ProfileError(f"{source}: kind {k} is both per-level and fixed to level {n}")
+                raise ProfileError(f"{source}: kind {k} is both free (any level) and fixed to level {n}")
             if k in seen:
                 raise ProfileError(f"{source}: kind {k} declared at levels {seen[k]} and {n}")
             seen[k] = n

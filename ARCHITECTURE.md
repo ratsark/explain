@@ -139,10 +139,13 @@ An id is a **kind letter** and a number, with optional dotted refinement:
   kind implies a level and `G2` never needs qualifying. This is the rule the
   first project adopted after an id collision between two levels, made
   structural.
-- **Per-level kinds.** A kind that legitimately exists at every level, such as
-  verification, is declared `per-level` in the profile, and its ids carry the
-  level prefix used by the directory layout: `L2-V3`, refined as `L2-V3.1`.
-  Any other kind is fixed to one level and never prefixed.
+- **Free kinds.** A kind that legitimately exists at every level is declared
+  under `free-kinds` in the profile: verification, assumptions, limitations,
+  hazards and evaluation criteria in the shipped profile (Leveson's environment
+  and verification columns exist at every level). Its numbers are unique per
+  kind across the spec like any other, its level comes from the path, and it
+  needs no level prefix; a written prefix (`L4-V3`) is checked against the
+  path. Every other kind is fixed to one level.
 - Ids are immutable within a level. A level move re-prefixes (a goal demoted
   to a principle goes from `G5` to `P5`). A `was:` field lets stray references
   resolve.
@@ -223,18 +226,19 @@ tree per level:
 
 ```yaml
 name: software
-per-level-kinds:
-  V: verification            # ids carry the level prefix: L0-V1, L4-V3
+free-kinds:                  # allowed at any level; a written L<n>- prefix is checked
+  V: verification
+  A: assumption              # a world-fact this level's items rely on
+  X: limitation              # an accepted gap ("L" is reserved for level prefixes)
+  H: hazard                  # a named risk with a measurement
+  E: evaluation criterion
 levels:
   - n: 0
     name: purpose
     kinds:
       G: goal
       C: constraint          # pass/fail; never traded for goal progress
-      A: assumption          # a fact about the environment this spec relies on
-      X: limitation          # an accepted gap ("L" is reserved for level prefixes)
-      R: risk                # hazards, threats, failure modes
-      E: evaluation criterion
+      R: requirement
     sections:                # the optional heading tree; elided until used
       - Mission
       - Goals
@@ -343,8 +347,8 @@ Commands, v0:
 Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
 
 - **Errors** mean the graph is malformed and cannot be trusted. They fail
-  `check`. Duplicate id; kind not allowed at this level; per-level kind without
-  its level prefix, or prefix disagreeing with the path; unknown id in any
+  `check`. Duplicate id; kind not allowed at this level; a level prefix
+  disagreeing with the path; unknown id in any
   relation; unknown spec namespace; unknown header key or inline relation name;
   malformed header line; `serves` pointing downward; a refinement (`G6.2`)
   whose parent (`G6`) is not defined; a malformed line in `accepted-links.txt`;

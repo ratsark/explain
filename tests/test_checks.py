@@ -2,6 +2,12 @@
 
 from tests.helpers import SpecCase
 
+
+def spec_kinds(root, iid):
+    from explain.parse import parse_spec
+    it = parse_spec(root).items[iid]
+    return (it.level, it.kind)
+
 L0 = "## G1 — One\n## G2 — Two\n## A1 — Ass\n## C1 — Con\n"
 
 
@@ -66,7 +72,8 @@ class ErrorTests(SpecCase):
             "L4-realization.md": "## L4-V3 — fine\nverifies: G1\n",
         })
         _, f = self.check(root)
-        self.assertCode(f, "missing-level-prefix", "error", count=1)
+        self.assertNoCode(f, "missing-level-prefix")            # a free kind needs no prefix
+        self.assertEqual(spec_kinds(root, "V1"), (0, "V"))       # V1 at L0 is fine
         self.assertCode(f, "wrong-level-prefix", "error", count=1)
         self.assertCode(f, "unexpected-level-prefix", "error", count=1)
         self.assertNoCode(f, "unknown-kind")
@@ -108,7 +115,7 @@ class ErrorTests(SpecCase):
 class ProfileOverrideTests(SpecCase):
     PROFILE = (
         "name: custom\n"
-        "per-level-kinds:\n  V: verification\n"
+        "free-kinds:\n  V: verification\n"
         "levels:\n"
         "  - n: 0\n    name: purpose\n    kinds:\n      G: goal\n      R: requirement\n      H: hazard\n"
         "  - n: 1\n    name: principles\n    kinds:\n      P: principle\n      LAW: design law\n      N: never rule\n"

@@ -2,19 +2,19 @@
 # Kind letters are unique across the spec. "L" is reserved for level prefixes
 # (L0-, L1-, ...) and may not be a kind.
 name: software
-per-level-kinds:
-  V: verification # ids carry the level prefix: L0-V1, L4-V3
+free-kinds: # allowed at any level; the level comes from the path; a written L<n>- prefix is checked
+  V: verification # guards, tests, verification doctrine
+  A: assumption # a world-fact this level's items rely on
+  X: limitation # an accepted gap or carried defect
+  H: hazard # a named risk with a measurement
+  E: evaluation criterion
 levels:
   - n: 0
     name: purpose
     kinds:
       G: goal
       C: constraint # pass/fail; never traded for goal progress
-      A: assumption # a fact about the environment this spec relies on
       R: requirement # numbered requirements, kept verbatim from the project's requirements document
-      X: limitation # an accepted gap
-      H: hazard # a named risk with a measurement
-      E: evaluation criterion
     sections:
       - Mission
       - Goals
