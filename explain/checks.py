@@ -323,7 +323,8 @@ def run_checks(spec, ext=None):
             if not has_serves and not derived:
                 f.append(Finding("report", "orphan",
                                  f"{it.id} serves nothing and is not marked derived", it.file, it.line))
-        elif it.level == top and has_parents and not has_serves and not derived and it.kind not in ("A", "X", "E", "R", "C"):
+        elif (it.level == top and has_parents and not has_serves and not derived
+              and it.kind not in profile.per_level_kinds and it.kind not in ("C", "R")):
             f.append(Finding("report", "derived-from-parent",
                              f"{it.id} serves nothing in the parent spec: derived from the parent's point of view", it.file, it.line))
         if derived and has_serves:

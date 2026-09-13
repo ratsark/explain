@@ -69,3 +69,17 @@ class CrossSpecTests(SpecCase):
         self.assertEqual(idx["name"], "acft")
         self.assertEqual(idx["items"]["D1"]["level"], 2)
         self.assertIn({"from": "D1", "relation": "serves", "to": "G1"}, idx["links"])
+
+
+class DerivedFromParentKindsTests(SpecCase):
+    def test_free_kinds_at_child_top_are_not_derived(self):
+        self.make({"L0-purpose.md": "## G1 — Parent goal\n## D1 — Element\nserves: G1\n"}, name="biz", subdir="biz")
+        child = self.make({"L0-purpose.md": (
+            "## Q1 — Which partner owns the domain?\nstatus: proposed\n"
+            "## A1 — The partner exists\n## X1 — No budget yet\n## H1 — A risk\n## E1 — A bar\n"
+            "## C1 — A constraint\n## R1 — A requirement\n"
+            "## G1 — Served\nserves: biz:D1\n## G2 — Derived goal\n"
+        )}, name="screen", manifest="name: screen\nparents:\n  biz:\n    path: ../biz\n", subdir="screen")
+        _, f = self.check(child)
+        hits = self.assertCode(f, "derived-from-parent", "report", count=1)
+        self.assertIn("G2", hits[0].message)
