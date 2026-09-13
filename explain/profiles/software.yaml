@@ -11,13 +11,15 @@ levels:
       G: goal
       C: constraint # pass/fail; never traded for goal progress
       A: assumption # a fact about the environment this spec relies on
+      R: requirement # numbered requirements, kept verbatim from the project's requirements document
       X: limitation # an accepted gap
-      R: risk # hazards, threats, failure modes
+      H: hazard # a named risk with a measurement
       E: evaluation criterion
     sections:
       - Mission
       - Goals
       - Constraints
+      - Requirements
       - Environment:
           - Assumptions
           - External constraints

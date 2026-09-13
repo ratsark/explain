@@ -8,6 +8,7 @@ from pathlib import Path
 
 from . import __version__
 from .checks import accept, downstream, export_index, externals, find_alias, inbound, run_checks, suspects, upstream
+from .components import Components
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
 
 
@@ -370,6 +371,78 @@ def cmd_review(args):
     return 0
 
 
+def cmd_coupling(args):
+    spec = _spec(args.path)
+    if spec is None:
+        return 2
+    comps = Components(spec)
+    if not comps.nodes:
+        print("no components: nothing declares part-of, hides, or an interface sub-item")
+        return 1
+    rows = comps.stats()
+    print(f"{len(rows)} components ({len(spec.items)} items; {sum(r['members'] for r in rows.values())} inside a component, "
+          f"{len(spec.items) - sum(r['members'] for r in rows.values())} cross-cutting)\n")
+    print(f"{'component':10} {'members':>7} {'internal':>8} {'out ok':>6} {'crossing':>8} {'in':>4} {'cohesion':>8}  title")
+    for c, r in sorted(rows.items(), key=lambda kv: (kv[1]['cohesion'] if kv[1]['cohesion'] is not None else 2, kv[0])):
+        coh = "-" if r["cohesion"] is None else f"{r['cohesion']:.2f}"
+        print(f"{c:10} {r['members']:7} {r['internal']:8} {r['out_ok']:6} {r['out_crossing']:8} {r['in']:4} {coh:>8}  {spec.items[c].title[:50]}")
+    edges = comps.component_edges()
+    if edges:
+        print("\ncomponent-to-component links (from -> to: count):")
+        for (a, b), n in sorted(edges.items(), key=lambda kv: (-kv[1], kv[0])):
+            print(f"  {a} -> {b}: {n}")
+    cycles = comps.cycles()
+    print(f"\ncycles: {len(cycles)}" + ("".join(f"\n  {' -> '.join(cy)} -> {cy[0]}" for cy in cycles)))
+    crossings = comps.crossings()
+    print(f"boundary crossings: {len(crossings)}" + ("".join(f"\n  {s.id} {l.relation} {l.target}  ({cx} -> inside {cy})" for s, l, cx, cy in crossings[:20]))
+          + ("\n  ..." if len(crossings) > 20 else ""))
+    cc = comps.cross_cutting()
+    print(f"\ncross-cutting items (outside every component) linked from more than one component: {sum(1 for _, s in cc if len(s) > 1)}")
+    for tid, s in cc[:15]:
+        if len(s) > 1:
+            print(f"  {tid:8} <- {len(s)} components: {', '.join(sorted(s))}  {spec.items[tid].title[:50]}")
+    od = comps.overdetermined()
+    print(f"\noverdetermined items (serves targets in 3+ components): {len(od)}")
+    for it, cs in od[:15]:
+        print(f"  {it.id:8} -> {', '.join(cs)}  {it.title[:50]}")
+    return 0
+
+
+def cmd_interfaces(args):
+    ids, path = _split_targets_and_path(args.targets)
+    spec = _spec(path)
+    if spec is None:
+        return 2
+    comps = Components(spec)
+    wanted = sorted(comps.nodes, key=_idkey)
+    if ids:
+        wanted = []
+        for raw in ids:
+            it, note = _find(spec, raw)
+            if it is None:
+                print(f"error: {note}", file=sys.stderr)
+                return 1
+            wanted.append(it.id)
+    if not wanted:
+        print("no components declared")
+        return 1
+    for cid in wanted:
+        it = spec.items[cid]
+        ifaces, assumptions = comps.interfaces(cid)
+        members = comps.members(cid)
+        print(f"{cid} — {it.title}  ({len(members)} members" + (f"; hides: {it.header['hides']}" if it.header.get("hides") else "") + ")")
+        print(f"  guarantees ({len(ifaces)} interface items):")
+        for iface, users in ifaces:
+            print(f"    {iface.id:10} {iface.title[:60]}" + (f"  <- {', '.join(users)}" if users else "  (no outside dependants yet)"))
+        if not ifaces:
+            print("    (none declared: nothing outside may link inside except to the component itself)")
+        print(f"  requires ({len(assumptions)} assumptions):")
+        for a, d in assumptions:
+            print(f"    {a.id:10} {a.title[:60]}  " + (f"discharged-by {', '.join(d)}" if d else "UNDISCHARGED"))
+        print()
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="explain", description="Query and check a means-ends design spec.")
     p.add_argument("--version", action="version", version=f"explain {__version__}")
@@ -400,6 +473,10 @@ def build_parser():
     s.add_argument("--all", action="store_true", help="every link in the spec")
     s.set_defaults(fn=cmd_accept)
     add("drift", cmd_drift, "accepted links whose targets changed since: what to re-read")
+    add("coupling", cmd_coupling, "components: cohesion, links between them, cycles, boundary crossings, cross-cutting and overdetermined items")
+    s = sub.add_parser("interfaces", help="a component's guarantees (interface items and who depends on them) and requirements (assumptions and what discharges them)")
+    s.add_argument("targets", nargs="*", help="component ids, optionally followed by the spec directory")
+    s.set_defaults(fn=cmd_interfaces)
     s = sub.add_parser("review", help="walk a level item by item (status, links with target titles, body); no level: status counts per level")
     s.add_argument("level", nargs="?", help="L0, L1, ... (omit for the per-level summary)")
     s.add_argument("path", nargs="?", default=".", help="spec directory (default: .)")
@@ -409,7 +486,7 @@ def build_parser():
     return p
 
 
-COMMANDS = ("check", "show", "serves", "why", "orphans", "outline", "export", "assumptions", "accept", "drift", "review")
+COMMANDS = ("check", "show", "serves", "why", "orphans", "outline", "export", "assumptions", "accept", "drift", "review", "coupling", "interfaces")
 
 
 def main(argv=None):

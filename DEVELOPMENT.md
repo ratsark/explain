@@ -50,6 +50,8 @@ python3 -m explain accept P2 examples/cas         # after re-reading P2 against 
 python3 -m explain drift examples/cas             # accepted links whose targets changed; what to re-read
 python3 -m explain review examples/cas            # status counts per level
 python3 -m explain review L1 examples/cas         # walk L1 item by item (the design-review flow)
+python3 -m explain coupling examples/cas          # components: cohesion, cycles, boundary crossings, cross-cutting items
+python3 -m explain interfaces D1 examples/cas     # a component's guarantees and requirements
 python3 -m explain --patterns                     # every regex and every declared miss
 ```
 

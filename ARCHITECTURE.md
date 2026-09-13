@@ -190,6 +190,10 @@ Header-only fields:
 | `source` | Free text or path: where the body's authority comes from. |
 | `refs` | Paths into code, tests, docs. Checked for existence only. |
 | `aka` | Other names this item is cited by, e.g. `law 16`; unique across the spec; `show`, `why`, `serves` resolve them. Lets a legacy numbering survive as aliases when items move to the level their content has. |
+| `component` | `true` to declare an item a component: its dotted sub-items are inside it, and other items may declare `part-of` it (section 13). |
+| `part-of` | The component this item belongs to. Items with no component are cross-cutting. |
+| `interface` | `true` on the items that are a component's published surface: the only things inside it another component may link to. |
+| `hides` | The design decision this component encapsulates, one line (Parnas's secret). Declares the item a component. |
 
 Inverses are never written. `served-by`, `assumed-by`, `verified-by`, and
 `depended-on-by` are computed. Hand-written bidirectional links are where every
@@ -331,6 +335,8 @@ Commands, v0:
 | `explain accept ID... \| --all` | Record that the links from these items were read against their targets as they are now (section 12). |
 | `explain drift` | Accepted links whose targets changed since: what to re-read, grouped by changed target. |
 | `explain review [L1]` | Walk a level item by item: status, links with target titles, flags, body. No level: status counts per level against `adopted-through`. |
+| `explain coupling` | Components: cohesion, links between them, cycles, boundary crossings, cross-cutting and overdetermined items (section 13). |
+| `explain interfaces [D201]` | A component's guarantees (interface items and who outside depends on them) and requirements (its assumptions and what discharges them). |
 
 Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
 
@@ -339,7 +345,8 @@ Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
   its level prefix, or prefix disagreeing with the path; unknown id in any
   relation; unknown spec namespace; unknown header key or inline relation name;
   malformed header line; `serves` pointing downward; a refinement (`G6.2`)
-  whose parent (`G6`) is not defined; a malformed line in `accepted-links.txt`.
+  whose parent (`G6`) is not defined; a malformed line in `accepted-links.txt`;
+  a `part-of` that points at an undefined item, at itself, or closes a cycle.
 - **Reports** mean the graph is incomplete. They never fail `check`; they are
   the to-do list, and a goal added today is expected to have nothing under it.
   Orphan (L1+ item serving nothing, not marked derived); unserved (an item
@@ -350,7 +357,10 @@ Checks, v0, in two classes and no third (MISSION_STATEMENT.md):
   or child that cannot be resolved; a committed parent index snapshot that
   differs from the live parent; `supersedes` target not marked superseded;
   a suspect link (its target changed since the link was accepted, section
-  12); links never accepted, as one count. `--strict` promotes reports to
+  12); links never accepted, as one count; a boundary crossing, a component
+  cycle, an interface item outside any component (section 13); a profile
+  section that holds prose but no items (prose outside an item has no
+  fingerprint). `--strict` promotes reports to
   errors for anyone who wants a release gate.
 
 `status: draft` versus `adopted`, and the manifest's `adopted-through`, let a
@@ -429,3 +439,45 @@ exactly what to re-read. This is Doorstop's mechanism, adapted.
   resolves its parent live sees the change at once; a child that pins a
   committed index snapshot sees it when the snapshot is refreshed, and a
   child that has both is told when the snapshot is stale.
+
+## 13. Components and boundaries
+
+A means-ends hierarchy says why each item exists; it says nothing about what
+can change independently. Those are different properties, and a traceable spec
+can still describe an overdetermined system. Components make the second
+property visible and checkable.
+
+- **Declaring a component.** Any item becomes a component by carrying
+  `component: true` or `hides:` (its secret, in one line), by being the target
+  of another item's `part-of`, or by having an `interface: true` sub-item. Its
+  dotted sub-items are inside it. Any other item, at any level, joins a
+  component with `part-of: D201`; components nest the same way. Items with no
+  component are **cross-cutting**: goals and principles usually, and the few
+  doctrines that are meant to touch everything.
+- **Interfaces are guarantees.** An item flagged `interface: true` is part of
+  its component's published surface: a promise other components may rely on.
+  The other half of the contract already exists: the component's `A` items are
+  its requirements on the world, each `discharged-by` some other component's
+  guarantee. `explain interfaces D201` shows both halves, with who depends on
+  each guarantee from outside.
+- **The boundary rule.** A `serves`, `depends-on` or `assumes` link from inside
+  component A to an item inside a different component B must target B itself
+  or one of B's interface items. Reaching up into an enclosing component is
+  fine; reaching into a sibling's or a child's internals is reported as a
+  **boundary crossing**. Links to cross-cutting items are never crossings.
+  `verifies`, `conflicts-with` and `supersedes` are exempt: a guard may look
+  inside, and lateral bookkeeping is not a dependency. Components that depend
+  on each other in a cycle are reported.
+- **Measuring.** `explain coupling` reports, per component, its members,
+  internal links, outgoing links that go through interfaces or nodes, outgoing
+  crossings, incoming links, and cohesion (internal over internal plus
+  outgoing); the component-to-component link counts; cycles; crossings; the
+  cross-cutting items linked from more than one component; and overdetermined
+  items, whose `serves` targets lie in three or more components. The
+  re-evaluation sweep (`explain serves`) is the propagation-cost measure the
+  design-structure-matrix literature uses; its cross-component fraction is
+  what overdetermination looks like in this format.
+- **Enforcing.** All of this is reports. A project that wants a gate promotes
+  the boundary and cycle reports with `--strict`, or asserts in its own check
+  that crossings do not increase. Design coupling is not code coupling: an
+  `I` row's `refs` are where a code-level import check should attach later.

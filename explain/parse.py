@@ -59,6 +59,10 @@ HEADER_FIELDS = {
     "source": "where the body's authority comes from",
     "refs": "paths into code, tests, docs",
     "aka": "other names this item is cited by (free text, e.g. 'law 16'); unique across the spec; resolvable by show/why/serves",
+    "component": "true to declare this item a component: its dotted sub-items are inside it, and other items may declare part-of it",
+    "part-of": "the component this item belongs to (an item id); items without one are cross-cutting",
+    "interface": "true on the items that are a component's published surface: the only things another component may link to",
+    "hides": "the design decision this component encapsulates (free text, on a component node)",
 }
 STATUSES = ("draft", "proposed", "adopted", "superseded", "rejected")
 
@@ -76,6 +80,8 @@ DECLARED_MISSES = [
     "Cross-spec targets are resolved through a parent's 'path' or 'index'; a namespace with neither is reported as unresolvable, not checked.",
     "A fingerprint covers an item's title and body and its refinements' (dotted sub-items), not its header fields: a status change never makes dependants suspect, and a change to a linked-to item's own links does not either.",
     "Drift is only detected for links that have been accepted (accepted-links.txt); links never accepted are counted, not checked.",
+    "Prose outside any item has no fingerprint: drift in it is invisible. A profile section holding prose but no items is reported so the author can make the prose an item.",
+    "Boundary checks cover serves, depends-on and assumes between local items; verifies, conflicts-with, supersedes and cross-spec links are not boundary-checked.",
 ]
 
 
@@ -168,6 +174,7 @@ class Spec:
     findings: list       # parse-time findings
     sections: dict       # n -> [(title, file, line, depth)]
     accepted: dict = field(default_factory=dict)   # (from, relation, to) -> fingerprint
+    section_flags: dict = field(default_factory=dict)  # (file, line) -> {"items": bool, "prose": bool}
 
     @property
     def name(self):
@@ -322,6 +329,8 @@ class _FileParser:
         self.findings = findings
         self.items = []            # items in this file, in order
         self.sections = []
+        self.section_flags = {}    # (file, line) of a section -> {"items": bool, "prose": bool}
+        self._cur_section = None
         self.current_heading = None   # heading Item owning body lines
         self.current_bullet = None    # bullet Item owning continuation lines
         self.bullet_indent = 0
@@ -363,6 +372,8 @@ class _FileParser:
         m = HEADING_ITEM_RE.match(line)
         if m:
             item = self._new_item(m, lineno, False, len(m.group(1)), m.group(6))
+            if self._cur_section is not None:
+                self.section_flags[self._cur_section]["items"] = True
             self.current_heading = item
             self.current_bullet = None
             self.in_header = True
@@ -377,6 +388,8 @@ class _FileParser:
         if m:
             depth = len(m.group(1))
             self.sections.append((m.group(2).strip(), self.rel, lineno, depth))
+            self._cur_section = (self.rel, lineno)
+            self.section_flags[self._cur_section] = {"items": False, "prose": False}
             if self.current_heading is not None and depth <= self.current_heading.depth:
                 self.current_heading = None
             self.current_bullet = None
@@ -409,6 +422,8 @@ class _FileParser:
             self.current_heading.body_lines.append(line)
             self._scan_links(self.current_heading, line, lineno)
         else:
+            if self._cur_section is not None:
+                self.section_flags[self._cur_section]["prose"] = True
             self._scan_orphan_links(line, lineno)
 
     def _header_line(self, item, key, value, lineno):
@@ -437,9 +452,14 @@ class _FileParser:
                 return
             if key in ("was", "refs", "aka") and not isinstance(parsed, list):
                 parsed = [parsed] if parsed is not None else []
-            if key == "derived" and parsed is not True:
-                self.findings.append(Finding("error", "bad-header", f"{item.id}: derived must be 'true' or absent", self.rel, lineno))
+            if key in ("derived", "interface", "component") and parsed is not True:
+                self.findings.append(Finding("error", "bad-header", f"{item.id}: {key} must be 'true' or absent", self.rel, lineno))
                 return
+            if key == "part-of":
+                if not isinstance(parsed, str) or split_qid(parsed) is None or split_qid(parsed)[0] not in (None,):
+                    self.findings.append(Finding("error", "bad-header", f"{item.id}: part-of must be a single local id", self.rel, lineno))
+                    return
+                parsed = split_qid(parsed)[1]
             if key == "status" and parsed not in STATUSES:
                 self.findings.append(Finding("error", "bad-header",
                                              f"{item.id}: status must be one of {', '.join(STATUSES)}; got {parsed!r}", self.rel, lineno))
@@ -485,6 +505,7 @@ def parse_spec(root, load_external=True):
     levels = find_levels(root, profile, findings)
     items = {}
     sections = {}
+    section_flags = {}
     for n, lf in sorted(levels.items()):
         sections[n] = []
         for rel in lf.files:
@@ -498,8 +519,9 @@ def parse_spec(root, load_external=True):
                     continue
                 items[item.id] = item
             sections[n].extend(fp.sections)
+            section_flags.update(fp.section_flags)
     accepted = load_accepted(root, findings)
-    return Spec(root, manifest, profile, levels, items, findings, sections, accepted)
+    return Spec(root, manifest, profile, levels, items, findings, sections, accepted, section_flags)
 
 
 def patterns_text():

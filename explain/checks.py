@@ -6,6 +6,7 @@ Errors fail `check`. Reports never do; `--strict` promotes them.
 import json
 from pathlib import Path
 
+from .components import Components
 from .parse import DOWNSTREAM_RELATIONS, Finding, RELATIONS, parse_spec, split_qid
 
 
@@ -332,11 +333,39 @@ def run_checks(spec, ext=None):
 
     # --- sections ------------------------------------------------------------
     for n, lf in spec.levels.items():
+        declared = {t.lower() for t in profile.levels[n].section_titles()}
         titles = {t.lower() for t, _, _, _ in spec.sections.get(n, [])}
         missing = [t for t in profile.levels[n].section_titles() if t.lower() not in titles]
         if missing:
             f.append(Finding("report", "sections-absent",
                              f"L{n} has no section yet for: {', '.join(missing)}", lf.entry))
+        for title, file, line, depth in spec.sections.get(n, []):
+            flags = spec.section_flags.get((file, line))
+            if title.lower() in declared and flags and flags["prose"] and not flags["items"]:
+                f.append(Finding("report", "section-prose-only",
+                                 f"section {title!r} holds prose but no items; prose outside an item has no fingerprint, so drift in it is invisible. Make it an item if anything depends on it", file, line))
+
+    # --- components and boundaries ----------------------------------------------
+    for it in items.values():
+        po = it.header.get("part-of")
+        if po and po not in items:
+            f.append(Finding("error", "unknown-id", f"{it.id}: part-of: {po} is not defined", it.file, it.line))
+        elif po == it.id:
+            f.append(Finding("error", "self-link", f"{it.id}: part-of itself", it.file, it.line))
+    comps = Components(spec)
+    for it in items.values():
+        po = it.header.get("part-of")
+        if po and po in items and po != it.id and it.id in comps.chain(po):
+            f.append(Finding("error", "part-of-cycle", f"{it.id}: part-of {po} closes a cycle ({' > '.join(comps.chain(po))})", it.file, it.line))
+        if it.header.get("interface") is True and comps.of(it.id) is None:
+            f.append(Finding("report", "interface-without-component",
+                             f"{it.id} is marked interface but belongs to no component (no part-of, and its parent is not a component)", it.file, it.line))
+    for src, link, cx, cy in comps.crossings():
+        f.append(Finding("report", "boundary-crossing",
+                         f"{src.id} (in {cx}) {link.relation} {link.target} (inside {cy}), which is not {cy}'s interface: route it through an interface item or {cy} itself", link.file, link.line))
+    for cycle in comps.cycles():
+        f.append(Finding("report", "component-cycle",
+                         f"components depend on each other in a cycle: {' -> '.join(cycle)} -> {cycle[0]}", Path("spec.yaml")))
 
     f.sort(key=lambda x: x.sort_key())
     return f
