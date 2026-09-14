@@ -89,7 +89,14 @@ parents:
     index: parents/aircraft.index.json   # or: a committed snapshot
 children:
   - path: ../display           # optional; lets the parent build its allocation view
+root: G0                       # optional: the mission; every other top-level goal is taken to serve it
 ```
+
+`root:` names the item at the top level that everything else at that level of
+the same kind serves: the mission. With it declared, a goal needs no
+`serves: G0` line (the tool adds an implied link, shown as such), an explicit
+one draws no same-level report, and the mission is never reported unserved
+or isolated.
 
 Parents and children are both optional. A child that names a parent by index
 file only is loosely coupled: the parent can be in another repo or another
@@ -128,6 +135,14 @@ Rules:
   fence. Keys come from the closed vocabulary in section 5.
 - The **body** is everything after the header until the next item at the same
   or shallower depth, or the next heading.
+- **Editorial matter is separable.** A body paragraph whose first line starts
+  with `Editorial:`, `History:`, `Provenance:`, `Note:` or `Transcription:` is
+  editorial: it stays in the file for editors, but `show` and `review` leave
+  it out (`show --editorial` prints it) and the fingerprint ignores it, so a
+  change to provenance never makes dependants suspect. Inside a level
+  directory, `README.md`, `NOTES.md`, `HISTORY.md` and `*.notes.md` are
+  skipped entirely: the place for file-level editorial matter. Prose before
+  the first item of a spec file is not part of any item and is never rendered.
 - **Links are typed wherever they appear, and placement carries no meaning.**
   `serves: G2` in a header and `[[serves G2]]` in a sentence are the same edge.
   Put a link in the header when it applies to the whole item; put it inline
@@ -342,7 +357,7 @@ Commands, v0:
 |---|---|
 | `explain init NAME [DIR] --profile P` | Scaffold a new spec: manifest, one file per level with the profile's sections, a README stub. |
 | `explain check [path]` | All errors and reports for a spec, with file and line. Exit 1 on errors, 0 otherwise; `--strict` promotes reports. |
-| `explain show ID` | "What is G2": heading, header, body, location, computed inverses. |
+| `explain show ID` | "What is G2": heading, header, body (design paragraphs), location, computed inverses. `--editorial` adds the editorial paragraphs. |
 | `explain serves ID` | Everything downstream, transitively. The re-evaluation sweep. |
 | `explain why ID` | The upward chain to L0 and into parents. |
 | `explain orphans` | Items at L1+ with no `serves` and no `derived`. |

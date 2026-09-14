@@ -93,7 +93,7 @@ def cmd_show(args):
         print(f"  {k}: {_fmt(v)}")
     by_rel = {}
     for l in it.links:
-        by_rel.setdefault(l.relation, []).append(l.target + (" (inline)" if l.inline else ""))
+        by_rel.setdefault(l.relation, []).append(l.target + (" (inline)" if l.inline else "") + (" (implied root)" if l.implied else ""))
     for rel, targets in by_rel.items():
         print(f"  {rel}: {', '.join(targets)}")
     idx = inbound(spec, tuple(RELATIONS))
@@ -108,11 +108,13 @@ def cmd_show(args):
         print(f"  refined-by: {', '.join(kids)}")
     for rel, ids in inv.items():
         print(f"  {_inverse(rel)}: {', '.join(sorted(ids, key=_idkey))}")
-    body = it.body
+    body = it.body if getattr(args, "editorial", False) else it.design_body
     if body:
         print()
         for line in body.splitlines():
             print(f"  {line}")
+    if not getattr(args, "editorial", False) and it.editorial_body:
+        print(f"\n  ({len(it.split_body()[1])} editorial paragraph(s) not shown; --editorial shows them)")
     return 0
 
 
@@ -493,7 +495,7 @@ def cmd_review(args):
             for key in ("owner", "source", "refs", "was", "until", "hides"):
                 if key in i.header:
                     print(f"  {key}: {_fmt(i.header[key])}")
-            body = i.body.strip()
+            body = i.design_body.strip()
             if body:
                 lines = body.splitlines()
                 shown = lines if args.full else lines[:args.lines]
@@ -599,7 +601,8 @@ def build_parser():
     s = add("check", cmd_check, "errors and reports for a spec; exit 1 on errors")
     s.add_argument("--strict", action="store_true", help="treat reports as errors")
     s.add_argument("--quiet", action="store_true", help="print errors only")
-    add("show", cmd_show, "what is ID: header, links, computed inverses, body", id_arg=True)
+    s = add("show", cmd_show, "what is ID: header, links, computed inverses, body", id_arg=True)
+    s.add_argument("--editorial", action="store_true", help="also print editorial paragraphs (History:, Provenance:, Note:, ...)")
     add("serves", cmd_serves, "everything downstream of ID, transitively (the re-evaluation sweep)", id_arg=True)
     add("why", cmd_why, "the upward chain from ID to the top", id_arg=True)
     add("orphans", cmd_orphans, "items that serve nothing and are not marked derived")

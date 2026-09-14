@@ -42,6 +42,12 @@ MENTION_RE = re.compile(r"\[\[[ \t]*(" + QID_CORE + r")[ \t]*\]\]")
 
 FENCE_RE = re.compile(r"^[ \t]*(```|~~~)")
 
+# Files inside a level directory that hold editorial matter, never items: skipped by the parser.
+EDITORIAL_FILE_RE = re.compile(r"^(README|NOTES|HISTORY)\.md$|\.notes\.md$", re.IGNORECASE)
+# A paragraph whose first line starts with one of these words is editorial: kept in the file for
+# editors, left out of rendered bodies and out of the fingerprint.
+EDITORIAL_PARA_RE = re.compile(r"^[ \t]*(Editorial|History|Provenance|Note|Transcription)[ \t]*:", re.IGNORECASE)
+
 RELATIONS = {
     "serves": "the ends this item exists for (means-ends, up)",
     "assumes": "assumption items this item rests on (lateral)",
@@ -86,6 +92,9 @@ DECLARED_MISSES = [
     "A free kind (declared under free-kinds: V, A, X, H, E in the shipped profile) may sit at any level; its id needs no level prefix, and a written prefix (L4-V1) is checked against the path.",
     "Prose outside any item has no fingerprint: drift in it is invisible. A profile section holding prose but no items is reported so the author can make the prose an item.",
     "Boundary checks cover serves, depends-on and assumes between local items; verifies, conflicts-with, supersedes and cross-spec links are not boundary-checked.",
+    "Inside a level directory, README.md, NOTES.md, HISTORY.md and *.notes.md are skipped entirely: editorial files, never items.",
+    "A body paragraph whose first line starts with Editorial:, History:, Provenance:, Note: or Transcription: is editorial: shown only by show --editorial, excluded from the fingerprint, but its typed links and mentions still count.",
+    "With root: declared in the manifest, every other top-level item of the root's kind at the top level is taken to serve it (an implied serves link, shown as such); explicit serves: to the root is allowed and not reported.",
 ]
 
 
@@ -96,6 +105,7 @@ class Link:
     file: Path
     line: int
     inline: bool
+    implied: bool = False   # added by the tool (the manifest's root), not written by the author
 
 
 @dataclass
@@ -156,6 +166,26 @@ class Item:
     def body(self):
         return "\n".join(self.body_lines).strip("\n")
 
+    def split_body(self):
+        """(design paragraphs, editorial paragraphs); a paragraph is a blank-line-delimited block."""
+        design, editorial, para = [], [], []
+        for line in self.body_lines + [""]:
+            if line.strip():
+                para.append(line)
+                continue
+            if para:
+                (editorial if EDITORIAL_PARA_RE.match(para[0]) else design).append("\n".join(para))
+                para = []
+        return design, editorial
+
+    @property
+    def design_body(self):
+        return "\n\n".join(self.split_body()[0])
+
+    @property
+    def editorial_body(self):
+        return "\n\n".join(self.split_body()[1])
+
     def links_of(self, relation):
         return [l for l in self.links if l.relation == relation]
 
@@ -197,7 +227,7 @@ class Spec:
             it = self.items.get(iid)
             if it is None:
                 continue
-            parts.append(iid + "\n" + _norm_text(it.title) + "\n" + _norm_text(it.body))
+            parts.append(iid + "\n" + _norm_text(it.title) + "\n" + _norm_text(it.design_body))
             stack.extend(sorted(k.id for k in self.items.values() if k.parent_id == iid))
         return hashlib.sha256("\n\n".join(sorted(parts)).encode("utf-8")).hexdigest()[:10]
 
@@ -272,7 +302,7 @@ def parse_manifest(root, findings):
     if not isinstance(data, dict):
         findings.append(Finding("error", "bad-manifest", "spec.yaml must be a mapping", Path("spec.yaml")))
         return {}
-    known = {"name", "title", "profile", "adopted-through", "parents", "children", "refs-root"}
+    known = {"name", "title", "profile", "adopted-through", "parents", "children", "refs-root", "root"}
     for k in data:
         if k not in known:
             findings.append(Finding("error", "bad-manifest", f"spec.yaml: unknown key {k!r}", Path("spec.yaml")))
@@ -320,7 +350,8 @@ def find_levels(root, profile, findings):
         if entry.is_file():
             files = [rel]
         else:
-            files = sorted(p.relative_to(root) for p in entry.rglob("*.md") if p.is_file())
+            files = sorted(p.relative_to(root) for p in entry.rglob("*.md")
+                           if p.is_file() and not EDITORIAL_FILE_RE.search(p.name))
         levels[n] = LevelFiles(n, m.group(2), rel, files)
     return levels
 
@@ -529,7 +560,29 @@ def parse_spec(root, load_external=True):
             sections[n].extend(fp.sections)
             section_flags.update(fp.section_flags)
     accepted = load_accepted(root, findings)
-    return Spec(root, manifest, profile, levels, items, findings, sections, accepted, section_flags)
+    spec = Spec(root, manifest, profile, levels, items, findings, sections, accepted, section_flags)
+    _apply_root(spec)
+    return spec
+
+
+def _apply_root(spec):
+    """manifest root: G0 -> every other top-level item of the root's kind at the top level serves it, implicitly."""
+    rid = spec.manifest.get("root")
+    if not rid:
+        return
+    rid = str(rid).strip()
+    root_item = spec.items.get(rid)
+    top = min(spec.profile.level_numbers())
+    if root_item is None or root_item.level != top or root_item.parent_id:
+        spec.findings.append(Finding("error", "bad-manifest",
+                                     f"spec.yaml: root {rid!r} must be a top-level item at L{top}", Path("spec.yaml")))
+        return
+    for it in spec.items.values():
+        if it.id == rid or it.level != top or it.parent_id or it.kind != root_item.kind:
+            continue
+        if any(l.relation == "serves" and split_qid(l.target) and split_qid(l.target)[1] == rid for l in it.links):
+            continue
+        it.links.append(Link("serves", rid, it.file, it.line, False, implied=True))
 
 
 def patterns_text():

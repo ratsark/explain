@@ -255,9 +255,10 @@ def run_checks(spec, ext=None):
                 if tgt.level > it.level:
                     f.append(Finding("error", "serves-downward",
                                      f"{it.id} (L{it.level}) serves {tid} (L{tgt.level}): means-ends links point upward", link.file, link.line))
-                elif tgt.level == it.level and tgt.kind == it.kind:
+                elif tgt.level == it.level and tgt.kind == it.kind and tid != str(spec.manifest.get("root") or ""):
                     # A constraint serving a goal at L0 is fine (Leveson's own
-                    # layout); a goal serving a goal is probably refinement.
+                    # layout); a goal serving a goal is probably refinement,
+                    # unless the goal is the declared root (the mission).
                     f.append(Finding("report", "serves-same-level",
                                      f"{it.id} serves {tid}, same level and kind; refinement (dotted ids) or depends-on may be meant", link.file, link.line))
                 elif it.level - tgt.level > 1:

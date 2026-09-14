@@ -130,3 +130,42 @@ class ParseTests(SpecCase):
         spec = parse_spec(root)
         self.assertEqual(spec.items["P1"].header["was"], ["G1", "G7"])
         self.assertIs(spec.items["P1"].header["derived"], True)
+
+
+class EditorialAndRootTests(SpecCase):
+    def test_editorial_paragraphs_and_files(self):
+        root = self.make({
+            "L0-purpose/00-goals.md": "## G1 — One\n\nThe design sentence.\n\nHistory: minted 2026-09-12; renamed once.\n\nMore design [[G2]].\n\nNote: the checker flags this on purpose.\n## G2 — Two\n",
+            "L0-purpose/NOTES.md": "## G9 — would be an item if parsed\n",
+            "L0-purpose/README.md": "editorial\n",
+            "L0-purpose/old.notes.md": "## G8 — also skipped\n",
+        })
+        spec = parse_spec(root)
+        self.assertEqual(sorted(spec.items), ["G1", "G2"])
+        g1 = spec.items["G1"]
+        self.assertEqual(g1.design_body, "The design sentence.\n\nMore design [[G2]].")
+        self.assertIn("History:", g1.editorial_body); self.assertIn("Note:", g1.editorial_body)
+        fp = spec.fingerprint("G1")
+        (root / "L0-purpose/00-goals.md").write_text((root / "L0-purpose/00-goals.md").read_text().replace("renamed once", "renamed twice"), encoding="utf-8")
+        self.assertEqual(parse_spec(root).fingerprint("G1"), fp)       # editorial change: no drift
+        (root / "L0-purpose/00-goals.md").write_text((root / "L0-purpose/00-goals.md").read_text().replace("The design sentence", "The design sentence, changed"), encoding="utf-8")
+        self.assertNotEqual(parse_spec(root).fingerprint("G1"), fp)    # design change: drift
+
+    def test_root_implies_serves(self):
+        root = self.make({"L0-purpose.md": "## G0 — The mission\n## G1 — One\n## G2 — Two\nserves: G0\n- G2.1 — part\n## C1 — Con\n## A1 — Ass\n"},
+                         manifest="name: t\nroot: G0\n")
+        spec, f = self.check(root)
+        self.assertNoErrors(f)
+        self.assertNoCode(f, "serves-same-level")
+        self.assertEqual([(l.target, l.implied) for l in spec.items["G1"].links], [("G0", True)])
+        self.assertEqual([(l.target, l.implied) for l in spec.items["G2"].links], [("G0", False)])
+        self.assertEqual(spec.items["C1"].links, []); self.assertEqual(spec.items["G2.1"].links, [])
+        unserved = [x.message.split()[0] for x in f if x.code == "unserved"]
+        self.assertNotIn("G0", unserved)
+        from explain.checks import connectivity
+        self.assertEqual(sorted(i.id for i in connectivity(spec)[0]), ["A1", "C1"])
+
+    def test_bad_root(self):
+        root = self.make({"L0-purpose.md": "## G1 — One\n", "L1-principles.md": "## P1 — P\nserves: G1\n"}, manifest="name: t\nroot: P1\n")
+        _, f = self.check(root)
+        self.assertCode(f, "bad-manifest", "error", count=1)
