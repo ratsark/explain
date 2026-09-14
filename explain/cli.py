@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .checks import accept, allocations, connectivity, downstream, export_index, externals, find_alias, inbound, questions, run_checks, suspects, upstream
+from .checks import accept, allocations, connectivity, downstream, downward_tree, export_index, externals, find_alias, inbound, questions, run_checks, suspects, upstream
 from .components import Components
 from .profile import PROFILE_DIR, ProfileError, load_profile
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
@@ -188,6 +188,33 @@ def cmd_why(args):
     walk(tree, 0)
     if not tree[2]:
         print("  (serves nothing: it is a top-level item, an orphan, or derived)")
+    return 0
+
+
+def cmd_how(args):
+    spec = _spec(args.path)
+    if spec is None:
+        return 2
+    it, note = _find(spec, args.id)
+    if it is None:
+        print(f"error: {note}", file=sys.stderr)
+        return 1
+    if note:
+        print(note)
+    tree = downward_tree(spec, it.id, max_depth=args.depth)
+    count = [0]
+
+    def walk(node, indent):
+        iid, title, kids = node
+        print(f"{'  ' * indent}{iid} — {title}")
+        for k in kids:
+            count[0] += 1
+            walk(k, indent + 1)
+    walk(tree, 0)
+    if not tree[2]:
+        print("  (nothing serves it yet)")
+        return 1
+    print(f"  {count[0]} items below, to depth {args.depth}")
     return 0
 
 
@@ -603,8 +630,10 @@ def build_parser():
     s.add_argument("--quiet", action="store_true", help="print errors only")
     s = add("show", cmd_show, "what is ID: header, links, computed inverses, body", id_arg=True)
     s.add_argument("--editorial", action="store_true", help="also print editorial paragraphs (History:, Provenance:, Note:, ...)")
-    add("serves", cmd_serves, "everything downstream of ID, transitively (the re-evaluation sweep)", id_arg=True)
-    add("why", cmd_why, "the upward chain from ID to the top", id_arg=True)
+    add("serves", cmd_serves, "everything downstream of ID via every relation, transitively: the re-evaluation sweep (see also: how)", id_arg=True)
+    add("why", cmd_why, "the upward tree from ID to the top: what it exists for", id_arg=True)
+    s = add("how", cmd_how, "the downward tree from ID: what serves it, recursively (the mirror of why)", id_arg=True)
+    s.add_argument("--depth", type=int, default=6, help="how many levels of means to show (default 6)")
     add("orphans", cmd_orphans, "items that serve nothing and are not marked derived")
     add("isolated", cmd_isolated, "items with no link in either direction, by level: the settlement measure that only falls")
     add("questions", cmd_questions, "open questions (kind Q) by level, what each blocks, and which answers superseded the rest")
@@ -637,7 +666,7 @@ def build_parser():
     return p
 
 
-COMMANDS = ("check", "show", "serves", "why", "orphans", "isolated", "questions", "outline", "export", "assumptions", "allocations", "accept", "drift", "review", "coupling", "interfaces", "init")
+COMMANDS = ("check", "show", "serves", "why", "how", "orphans", "isolated", "questions", "outline", "export", "assumptions", "allocations", "accept", "drift", "review", "coupling", "interfaces", "init")
 
 
 def main(argv=None):
