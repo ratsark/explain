@@ -43,6 +43,7 @@ python3 -m explain show G2 examples/cas           # what is G2 (case-insensitive
 python3 -m explain G2 examples/cas                # same: a bare id means show
 python3 -m explain serves G1 examples/cas         # everything downstream, transitively
 python3 -m explain why D2 examples/cas            # the upward chain, into the parent spec
+python3 -m explain how G1 examples/cas            # the downward tree: what serves it (mirror of why)
 python3 -m explain orphans examples/cas
 python3 -m explain isolated examples/cas         # items with no link either way, by level
 python3 -m explain questions examples/cas        # open questions (kind Q), what each blocks

@@ -521,6 +521,26 @@ def upstream(spec, start_id, ext):
     return node(start_id, {start_id})
 
 
+def downward_tree(spec, start_id, max_depth=6):
+    """The 'how' tree: items that serve start_id, recursively (serves links only, refinements shown as parts)."""
+    idx = inbound(spec, ("serves",))
+
+    def node(iid, depth, seen):
+        it = spec.items.get(iid)
+        title = it.title if it else "(unknown)"
+        kids = []
+        if depth < max_depth:
+            for k in sorted((k for k in spec.items.values() if k.parent_id == iid), key=lambda k: k.id):
+                kids.append((k.id, k.title + "  (part)", []))
+            for other, _ in sorted(idx.get(iid, []), key=lambda x: (x[0].level, x[0].id)):
+                if other.id in seen:
+                    kids.append((other.id, "(cycle)", []))
+                    continue
+                kids.append(node(other.id, depth + 1, seen | {other.id}))
+        return (iid, title, kids)
+    return node(start_id, 0, {start_id})
+
+
 def export_index(spec):
     return {
         "name": spec.name,

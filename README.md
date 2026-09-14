@@ -4,15 +4,16 @@ A lightweight, modular design-document format in plain markdown, modelled on
 Nancy Leveson's intent specifications, and a dependency-free tool that queries
 and checks it. Every item in a spec is linked to the ends it serves and the
 means that realize it, so `explain G2` tells you what G2 is, `explain why G2`
-tells you what it exists for, and `explain serves G2` tells you everything that
-would need a second look if it changed. The level set is chosen per domain, and
+tells you what it exists for, `explain how G2` what realizes it, and
+`explain serves G2` everything that would need a second look if it changed. The level set is chosen per domain, and
 one system's spec can be a component of another's across repositories.
 
 ```
 python3 -m explain check examples/cas      # errors fail; incompleteness is reported
 python3 -m explain G2 examples/cas         # what is G2
 python3 -m explain why D2 examples/cas     # the chain up to the goals, into the parent spec
-python3 -m explain serves G1 examples/cas  # the re-evaluation sweep
+python3 -m explain how G1 examples/cas     # the tree of means below it
+python3 -m explain serves G1 examples/cas  # the re-evaluation sweep: everything that would need a second look
 ```
 
 Python 3.9+, standard library only. Copy the `explain/` directory into any

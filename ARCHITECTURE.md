@@ -364,8 +364,9 @@ Commands, v0:
 | `explain init NAME [DIR] --profile P` | Scaffold a new spec: manifest, one file per level with the profile's sections, a README stub. |
 | `explain check [path]` | All errors and reports for a spec, with file and line. Exit 1 on errors, 0 otherwise; `--strict` promotes reports. |
 | `explain show ID` | "What is G2": heading, header, body (design paragraphs), location, computed inverses. `--editorial` adds the editorial paragraphs. |
-| `explain serves ID` | Everything downstream, transitively. The re-evaluation sweep. |
-| `explain why ID` | The upward chain to L0 and into parents. |
+| `explain serves ID` | Everything downstream via every relation, transitively: the re-evaluation sweep (what to re-read if ID changes). `how` is the means-ends tree; `serves` is the blast radius. |
+| `explain why ID` | The upward tree from ID to the top: what it exists for. |
+| `explain how ID` | The downward tree from ID: what serves it, recursively, with refinements shown as parts. The mirror of `why`. |
 | `explain orphans` | Items at L1+ with no `serves` and no `derived`. |
 | `explain isolated` | Items with no link in either direction, by level. The settlement measure that only falls: it cannot be moved by trading one report class for another. |
 | `explain questions` | Open questions (kind `Q`) by level, what each blocks (`depends-on` it), and which answers superseded the rest. |

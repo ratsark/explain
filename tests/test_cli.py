@@ -232,3 +232,29 @@ class InitTests(SpecCase):
         self.assertEqual(code, 2); self.assertIn("not empty", err)
         code, _, err = self.run_cli("init", "z", str(self.tmp / "z"), "--profile", "nope")
         self.assertEqual(code, 2)
+
+
+class HowTests(SpecCase):
+    def test_how_mirrors_why(self):
+        import contextlib, io
+        root = self.make({
+            "L0-purpose.md": "## G1 — One\n## G2 — Lonely\n",
+            "L1-principles.md": "## P1 — P\nserves: G1\n- P1.1 — part\n",
+            "L2-architecture.md": "## D1 — D\nserves: P1\n",
+            "L3-specs.md": "## S1 — S\nserves: D1\ndepends-on: G1\n",
+        })
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["how", "G1", str(root)])
+        self.assertEqual(code, 0)
+        text = out.getvalue()
+        self.assertIn("G1 — One\n  P1 — P\n    P1.1 — part  (part)\n    D1 — D\n      S1 — S\n", text)
+        self.assertIn("4 items below", text)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["how", "G2", str(root)])
+        self.assertEqual(code, 1)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main(["how", "G1", "--depth", "1", str(root)])
+        self.assertNotIn("D1", out.getvalue())
