@@ -143,6 +143,12 @@ Rules:
   directory, `README.md`, `NOTES.md`, `HISTORY.md` and `*.notes.md` are
   skipped entirely: the place for file-level editorial matter. Prose before
   the first item of a spec file is not part of any item and is never rendered.
+  The line between the two: a reason that justifies the item as it stands
+  ("means-free, so that the art style can change without touching the goal")
+  is design, because a reader applying the item needs it to interpret it.
+  History ("this used to be G5"), form choices ("written as a requirement
+  rather than a constraint because...") and process caveats matter only when
+  changing the item, and are editorial.
 - **Links are typed wherever they appear, and placement carries no meaning.**
   `serves: G2` in a header and `[[serves G2]]` in a sentence are the same edge.
   Put a link in the header when it applies to the whole item; put it inline
