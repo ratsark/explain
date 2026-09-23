@@ -83,3 +83,51 @@ class DerivedFromParentKindsTests(SpecCase):
         _, f = self.check(child)
         hits = self.assertCode(f, "derived-from-parent", "report", count=1)
         self.assertIn("G2", hits[0].message)
+
+
+class IndexChildTests(SpecCase):
+    def test_child_index_joins_sweep_and_drift(self):
+        parent = self.make({"L0-purpose.md": "## G1 — One\n", "L3-specs.md": "## S1 — A rule\nserves: G1\n\nThe rule.\n"},
+                           name="acft", manifest="name: acft\nchildren:\n  - index: children/guards.index.json\n", subdir="acft")
+        spec = parse_spec(parent)
+        fp = spec.fingerprint("S1")
+        idx = {"name": "guards", "items": {"T1": {"level": 4, "kind": "V", "title": "rule.test.ts", "fingerprint": "abc"},
+                                            "T2": {"level": 4, "kind": "V", "title": "review-rule §3", "fingerprint": "def"}},
+               "links": [{"from": "T1", "relation": "verifies", "to": "acft:S1", "accepted": fp},
+                         {"from": "T2", "relation": "verifies", "to": "acft:S1"}]}
+        (parent / "children").mkdir()
+        (parent / "children/guards.index.json").write_text(json.dumps(idx), encoding="utf-8")
+        spec = parse_spec(parent)
+        from explain.checks import child_suspects, downstream, externals
+        ext = externals(spec)
+        self.assertEqual(sorted(ext), ["guards"]); self.assertIsNone(ext["guards"].error)
+        rows = downstream(spec, "S1", ext)
+        self.assertEqual(sorted(getattr(i, "qualified", i.id) for i, *_ in rows), ["guards:T1", "guards:T2"])
+        self.assertEqual(sorted(getattr(i, "qualified", i.id) for i, *_ in downstream(spec, "G1", ext)), ["S1", "guards:T1", "guards:T2"])
+        _, f = self.check(parent)
+        self.assertNoCode(f, "child-link-suspect")
+        (parent / "L3-specs.md").write_text("## S1 — A rule\nserves: G1\n\nThe rule, overturned.\n", encoding="utf-8")
+        _, f = self.check(parent)
+        hits = self.assertCode(f, "child-link-suspect", "report", count=1)   # T1 accepted a fingerprint; T2 did not
+        self.assertIn("guards:T1 verifies S1", hits[0].message)
+        self.assertEqual([(c, frm) for c, frm, *_ in child_suspects(parse_spec(parent), externals(parse_spec(parent)))], [("guards", "T1")])
+
+    def test_export_carries_accepted_fingerprints(self):
+        from explain.checks import accept, export_index, externals
+        from explain.parse import save_accepted
+        root = self.make({"L0-purpose.md": "## G1 — One\n", "L1-principles.md": "## P1 — P\nserves: G1\n"})
+        spec = parse_spec(root)
+        self.assertNotIn("accepted", export_index(spec)["links"][0])
+        accept(spec, externals(spec), None); save_accepted(root, spec.accepted)
+        link = export_index(parse_spec(root))["links"][0]
+        self.assertEqual(link["accepted"], parse_spec(root).fingerprint("G1"))
+
+    def test_allocations_from_index_child(self):
+        from explain.checks import allocations
+        parent = self.make({"L0-purpose.md": "## G1 — One\n", "L2-architecture.md": "## D1 — Elem\nserves: G1\n"},
+                           name="acft", manifest="name: acft\nchildren:\n  - index: kid.json\n", subdir="acft")
+        (parent / "kid.json").write_text(json.dumps({"name": "kid", "items": {"G1": {"level": 0, "kind": "G", "title": "child goal"}},
+                                                     "links": [{"from": "G1", "relation": "serves", "to": "acft:D1"}]}), encoding="utf-8")
+        served, obligations, unresolved = allocations(parse_spec(parent))
+        self.assertEqual(unresolved, [])
+        self.assertEqual([(c, i.id) for c, i in served["D1"]], [("kid", "G1")])

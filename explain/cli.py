@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .checks import accept, allocations, connectivity, downstream, downward_tree, export_index, externals, find_alias, inbound, questions, run_checks, suspects, upstream
+from .checks import ChildItem, accept, allocations, child_suspects, connectivity, downstream, downward_tree, export_index, externals, find_alias, inbound, questions, run_checks, suspects, upstream
 from .components import Components
 from .profile import PROFILE_DIR, ProfileError, load_profile
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
@@ -152,19 +152,27 @@ def cmd_serves(args):
         return 1
     if note:
         print(note)
-    rows = downstream(spec, it.id)
+    ext = externals(spec)
+    rows = downstream(spec, it.id, ext)
     print(f"downstream of {it.id} — {it.title} (via {', '.join(DOWNSTREAM_RELATIONS)} and refinement):")
     if not rows:
-        print("  nothing. Nothing serves, assumes, verifies or depends on it yet.")
+        print("  nothing. Nothing serves, assumes, verifies or depends on it yet, here or in a declared child.")
         return 1
-    by_level = {}
+    by_level, in_children = {}, []
     for item, rel, via, depth in rows:
-        by_level.setdefault(item.level, []).append((item, rel, via, depth))
+        if isinstance(item, ChildItem):
+            in_children.append((item, rel, via, depth))
+        else:
+            by_level.setdefault(item.level, []).append((item, rel, via, depth))
     for n in sorted(by_level):
         print(f"  L{n} ({spec.levels[n].name}):")
         for item, rel, via, depth in sorted(by_level[n], key=lambda r: _idkey(r[0].id)):
             print(f"    {item.id:10} {item.title}  ({rel} {via}, depth {depth})")
-    print(f"  {len(rows)} items")
+    if in_children:
+        print("  in children:")
+        for item, rel, via, depth in sorted(in_children, key=lambda r: (r[0].child, r[0].id)):
+            print(f"    {item.qualified:24} {item.title[:60]}  ({rel} {via}, depth {depth})")
+    print(f"  {len(rows)} items" + (f" ({len(in_children)} in children)" if in_children else ""))
     return 0
 
 
@@ -454,9 +462,10 @@ def cmd_drift(args):
     rows = suspects(spec, ext)
     tracked = len(spec.accepted)
     if not rows:
-        print(f"no drift: {tracked} accepted link(s) all point at unchanged targets"
+        print(f"no drift here: {tracked} accepted link(s) all point at unchanged targets"
               + ("" if tracked else f" (nothing is tracked yet; `explain accept --all` to start)"))
-        return 1
+        _print_child_suspects(spec, ext)
+        return 1 if not child_suspects(spec, ext) else 0
     by_target = {}
     for it, link, old, cur in rows:
         by_target.setdefault((link.target, old, cur), []).append((it, link))
@@ -470,7 +479,17 @@ def cmd_drift(args):
             print(f"    {it.id:10} {it.title}  ({link.relation}; {link.file}:{link.line})")
         print(f"  then: explain accept {' '.join(sorted({it.id for it, _ in deps}, key=_idkey))}")
     print(f"{len(rows)} suspect link(s) across {len(by_target)} changed target(s); {tracked} accepted in total")
+    _print_child_suspects(spec, ext)
     return 0
+
+
+def _print_child_suspects(spec, ext):
+    cs = child_suspects(spec, ext)
+    if not cs:
+        return
+    print(f"\nin children ({len(cs)} link(s) whose target here moved since the child accepted it; re-review in the child, then accept there):")
+    for name, frm, rel, tid, old, now in sorted(cs, key=lambda r: (r[0], r[3], r[1])):
+        print(f"  {name}:{frm:14} {rel} {tid} — {spec.items[tid].title[:50]}  (accepted {old}, now {now})")
 
 
 def cmd_review(args):

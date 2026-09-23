@@ -339,6 +339,16 @@ A child spec declares its parent in `spec.yaml`. Then:
   `derived: true` with a body that says why.
 - The parent runs `explain allocations` to see, per parent item, which child
   items serve it, across all declared children. Generated, never hand-written.
+- A child may be declared by `path` (a directory with `spec.yaml`) or by
+  `index` (the JSON that `export` emits: `items` with fingerprints, `links`
+  with `from`, `relation`, `to` and, where the child has accepted the link, an
+  `accepted` fingerprint). A generated index is the natural form for a child
+  whose items are test files or review-rule sections: nobody hand-writes a
+  spec mirroring nine hundred tests. Once declared, the child's links into
+  this spec join the re-evaluation sweep (`serves` lists them under "in
+  children") and drift (`drift` and `check` report a child link whose target
+  row moved since the child accepted it, as `child-link-suspect`; the re-read
+  and the acceptance happen in the child).
 
 The contract between parent and child is exactly: the parent's exported index,
 the child's `serves` links into it, and the child's `A` items with dischargers.
@@ -364,7 +374,7 @@ Commands, v0:
 | `explain init NAME [DIR] --profile P` | Scaffold a new spec: manifest, one file per level with the profile's sections, a README stub. |
 | `explain check [path]` | All errors and reports for a spec, with file and line. Exit 1 on errors, 0 otherwise; `--strict` promotes reports. |
 | `explain show ID` | "What is G2": heading, header, body (design paragraphs), location, computed inverses. `--editorial` adds the editorial paragraphs. |
-| `explain serves ID` | Everything downstream via every relation, transitively: the re-evaluation sweep (what to re-read if ID changes). `how` is the means-ends tree; `serves` is the blast radius. |
+| `explain serves ID` | Everything downstream via every relation, transitively, here and in declared children: the re-evaluation sweep (what to re-read if ID changes). `how` is the means-ends tree; `serves` is the blast radius. |
 | `explain why ID` | The upward tree from ID to the top: what it exists for. |
 | `explain how ID` | The downward tree from ID: what serves it, recursively, with refinements shown as parts. The mirror of `why`. |
 | `explain orphans` | Items at L1+ with no `serves` and no `derived`. |
@@ -490,7 +500,10 @@ exactly what to re-read. This is Doorstop's mechanism, adapted.
 - Across specs, fingerprints travel in the exported index. A child that
   resolves its parent live sees the change at once; a child that pins a
   committed index snapshot sees it when the snapshot is refreshed, and a
-  child that has both is told when the snapshot is stale.
+  child that has both is told when the snapshot is stale. In the other
+  direction, a child's exported links carry the fingerprint it accepted, so
+  the parent's `drift` can say which child items (tests, review rules) must
+  be re-reviewed because a row here moved.
 
 ## 13. Components and boundaries
 

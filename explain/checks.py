@@ -27,17 +27,31 @@ def find_alias(spec, text):
 class External:
     """A parent or child spec, resolved through a path or an index file."""
 
-    def __init__(self, name, how, ids, error=None, stale=None):
+    def __init__(self, name, how, ids, error=None, stale=None, links=None):
         self.name = name
         self.how = how          # "path" | "index" | None
         self.ids = ids          # {id: {"level":..,"kind":..,"title":..,"fingerprint":..}} or None
         self.error = error
         self.stale = stale      # ids whose index fingerprint differs from the live spec, when both are given
+        self.links = links or []  # [{"from","relation","to","accepted"?}] — the other spec's links, for children
 
 
 def _ids_of(other):
     return {i.id: {"level": i.level, "kind": i.kind, "title": i.title, "fingerprint": other.fingerprint(i.id)}
             for i in other.items.values()}
+
+
+def _links_of(other):
+    """A parsed spec's links in export shape, with the accepted fingerprint where it has one."""
+    out = []
+    for i in other.items.values():
+        for l in i.links:
+            entry = {"from": i.id, "relation": l.relation, "to": l.target}
+            fp = other.accepted.get(link_key(i, l))
+            if fp:
+                entry["accepted"] = fp
+            out.append(entry)
+    return out
 
 
 def _load_index(spec, name, rel):
@@ -147,16 +161,67 @@ def externals(spec):
     for name, conf in (spec.manifest.get("parents") or {}).items():
         out[name] = resolve_external(spec, name, conf)
     for conf in spec.manifest.get("children") or []:
-        if isinstance(conf, dict) and conf.get("path"):
+        if not isinstance(conf, dict):
+            continue
+        child_name = conf.get("name")
+        if conf.get("path"):
             p = (spec.root / str(conf["path"])).resolve()
-            child_name = conf.get("name")
             if (p / "spec.yaml").is_file():
                 other = parse_spec(p)
                 child_name = other.name or child_name
                 if child_name:
-                    out[child_name] = External(child_name, "path", _ids_of(other))
+                    out[child_name] = External(child_name, "path", _ids_of(other), links=_links_of(other))
                     continue
             out[child_name or str(conf["path"])] = External(child_name, "path", None, f"{conf['path']}: no spec.yaml there")
+        elif conf.get("index"):
+            p = (spec.root / str(conf["index"])).resolve()
+            if not p.is_file():
+                out[child_name or str(conf["index"])] = External(child_name, "index", None, f"{conf['index']}: index file not found")
+                continue
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+                child_name = data.get("name") or child_name
+                if not child_name:
+                    raise KeyError("name")
+                out[child_name] = External(child_name, "index", data["items"], links=list(data.get("links") or []))
+            except (ValueError, KeyError) as e:
+                out[child_name or str(conf["index"])] = External(child_name, "index", None, f"{conf['index']}: not a valid index ({e})")
+    return out
+
+
+def child_inbound(spec, ext, relations=DOWNSTREAM_RELATIONS):
+    """this spec's id -> [(child_name, child_item_id, child_title, relation, accepted_fp)] from children's links."""
+    idx = {}
+    for name, e in ext.items():
+        if e.ids is None:
+            continue
+        for l in e.links:
+            if l.get("relation") not in relations:
+                continue
+            q = split_qid(str(l.get("to", "")))
+            if q is None or q[0] != spec.name:
+                continue
+            title = (e.ids.get(l.get("from")) or {}).get("title", "")
+            idx.setdefault(q[1], []).append((name, l.get("from"), title, l["relation"], l.get("accepted")))
+    return idx
+
+
+def child_suspects(spec, ext):
+    """Child links (with an accepted fingerprint) whose target here changed since: [(child, from, relation, to, accepted, now)]."""
+    out = []
+    for name, e in ext.items():
+        if e.ids is None:
+            continue
+        for l in e.links:
+            fp = l.get("accepted")
+            if not fp:
+                continue
+            q = split_qid(str(l.get("to", "")))
+            if q is None or q[0] != spec.name or q[1] not in spec.items:
+                continue
+            now = spec.fingerprint(q[1])
+            if now != fp:
+                out.append((name, l.get("from"), l.get("relation"), q[1], fp, now))
     return out
 
 
@@ -299,6 +364,10 @@ def run_checks(spec, ext=None):
         f.append(Finding("report", "suspect-link",
                          f"{it.id} {link.relation} {link.target}, but {link.target} changed since this link was accepted "
                          f"(was {old}, now {cur}): re-read {it.id}, then `explain accept {it.id}`", link.file, link.line))
+    for name, frm, rel, tid, old_fp, now in child_suspects(spec, ext):
+        f.append(Finding("report", "child-link-suspect",
+                         f"{name}:{frm} {rel} {tid}, but {tid} changed since the child accepted it (was {old_fp}, now {now}): re-review {name}:{frm}, then accept it there",
+                         items[tid].file, items[tid].line))
     untracked = sum(1 for it in items.values() for l in it.links
                     if link_key(it, l) not in spec.accepted and target_fingerprint(spec, ext, l) is not None)
     if untracked:
@@ -416,23 +485,24 @@ def allocations(spec):
     items, and the child's assumptions this spec's items discharge. Returns
     ({parent_id: [(child_name, child_item)]}, [(child_name, assumption, [parent ids])], [child names unresolved])."""
     served, obligations, unresolved = {}, [], []
-    for conf in spec.manifest.get("children") or []:
-        if not isinstance(conf, dict) or not conf.get("path"):
+    ext = externals(spec)
+    parents = set(spec.manifest.get("parents") or {})
+    for name, e in ext.items():
+        if name in parents:
             continue
-        p = (spec.root / str(conf["path"])).resolve()
-        if not (p / "spec.yaml").is_file():
-            unresolved.append(str(conf["path"]))
+        if e.ids is None:
+            unresolved.append(f"{name}: {e.error}")
             continue
-        child = parse_spec(p)
-        for it in child.items.values():
-            for link in it.links:
-                q = split_qid(link.target)
-                if q is None or q[0] != spec.name:
-                    continue
-                if link.relation == "serves":
-                    served.setdefault(q[1], []).append((child.name, it))
-                elif link.relation == "discharged-by" and it.kind == "A":
-                    obligations.append((child.name, it, q[1]))
+        for l in e.links:
+            q = split_qid(str(l.get("to", "")))
+            if q is None or q[0] != spec.name:
+                continue
+            meta = e.ids.get(l.get("from")) or {}
+            citem = ChildItem(name, l.get("from"), meta.get("title", ""), meta.get("level"), meta.get("kind"))
+            if l.get("relation") == "serves":
+                served.setdefault(q[1], []).append((name, citem))
+            elif l.get("relation") == "discharged-by" and meta.get("kind") == "A":
+                obligations.append((name, citem, q[1]))
     return served, obligations, unresolved
 
 
@@ -470,14 +540,35 @@ def inbound(spec, relations=DOWNSTREAM_RELATIONS):
     return idx
 
 
-def downstream(spec, start_id):
-    """Everything that would need re-evaluation if start_id changed: [(item, relation, via, depth)]."""
+class ChildItem:
+    """A leaf from a child spec, as seen from the parent's sweep."""
+
+    def __init__(self, child, iid, title, level=None, kind=None):
+        self.child, self.id, self.title, self.level, self.kind = child, iid, title, level, kind
+        self.parent_id = None
+
+    @property
+    def qualified(self):
+        return f"{self.child}:{self.id}"
+
+
+def downstream(spec, start_id, ext=None):
+    """Everything that would need re-evaluation if start_id changed: [(item, relation, via, depth)].
+    With ext (from externals()), child items linking into this spec appear as leaves (ChildItem)."""
     idx = inbound(spec)
+    cidx = child_inbound(spec, ext) if ext else {}
     seen = {start_id}
     out = []
     frontier = [(start_id, 0)]
     while frontier:
         cur, depth = frontier.pop(0)
+        for name, frm, title, rel, _ in cidx.get(cur, []):
+            key = f"{name}:{frm}"
+            if key in seen:
+                continue
+            seen.add(key)
+            meta = (ext[name].ids or {}).get(frm) or {}
+            out.append((ChildItem(name, frm, title, meta.get("level"), meta.get("kind")), rel, cur, depth + 1))
         # refinements of cur are downstream too
         kids = [i for i in spec.items.values() if i.parent_id == cur]
         for k in kids:
@@ -551,8 +642,5 @@ def export_index(spec):
                    "file": str(i.file), "line": i.line, "fingerprint": spec.fingerprint(i.id)}
             for i in sorted(spec.items.values(), key=lambda x: (x.level, x.file, x.line))
         },
-        "links": [
-            {"from": i.id, "relation": l.relation, "to": l.target}
-            for i in spec.items.values() for l in i.links
-        ],
+        "links": _links_of(spec),
     }
