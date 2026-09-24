@@ -27,11 +27,11 @@ whole system in a different language, from purpose down to code:
 
 | Level | Holds | Asks |
 |---|---|---|
-| L0 purpose | goals, constraints, assumptions, hazards | what must be true? |
-| L1 principles | the rules the design follows | what do we believe? |
-| L2 architecture | components, interfaces, behaviors | what are the parts? |
-| L3 specs | detailed decisions | what exactly? |
-| L4 realization | code and tests | where is it? |
+| L0 purpose | goals, constraints, assumptions, hazards | What is it for, and what's the design envelope? |
+| L1 principles | the rules the design follows | What rules guide the design? |
+| L2 architecture | components, interfaces, behaviors | What are the parts, and how do they fit? |
+| L3 specs | detailed decisions | What exactly does each part do? |
+| L4 realization | code and tests | Where is it built and checked? |
 
 Every item names the item above it that it **serves**. Reading up a chain
 answers *why*; reading down answers *how*. Here is one chain from the example
