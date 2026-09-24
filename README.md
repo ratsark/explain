@@ -292,3 +292,7 @@ gh issue create -R ratsark/explain --title "check: false unknown-id on L4-V1.2" 
 ```
 
 Status: format v0, tool v0.1. It is in use on one production project.
+
+## License
+
+GPL-3.0. See [LICENSE](LICENSE).
