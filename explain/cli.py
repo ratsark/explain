@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -306,8 +307,9 @@ def cmd_scan(args):
         print(f"{rel}:{n}: cites {iid}, which is not a row in {spec.name}", file=sys.stderr)
     if args.output:
         Path(args.output).write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+        rel = os.path.relpath(Path(args.output).resolve(), spec.root)
         print(f"wrote {args.output}: {len(index['items'])} file(s), {n_links} citation link(s), {len(unresolved)} unresolved; "
-              f"declare it in spec.yaml under children: - index: {args.output}")
+              f"declare it in spec.yaml under children: - index: {rel}")
     else:
         print(json.dumps(index, indent=2))
     return 0 if not unresolved else 1

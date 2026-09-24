@@ -42,10 +42,14 @@ MENTION_RE = re.compile(r"\[\[[ \t]*(" + QID_CORE + r")[ \t]*\]\]")
 
 FENCE_RE = re.compile(r"^[ \t]*(```|~~~)")
 
-# A citation a SOURCE file may carry, in any comment style: "spec: S49, D30@a1b2c3d4e5" (the code
-# serves those rows) or "spec-guard: S532.5@9f1a9e1e9d" (the test verifies them). Ids may carry
-# "@<fingerprint>" recording the row as last read; `scan` turns these into a child index.
-SOURCE_CITE_RE = re.compile(r"\b(spec|spec-guard)[ \t]*:[ \t]*((?:[A-Z]{1,3}\d+(?:\.\d+)*(?:@[0-9a-f]{6,64})?)(?:[ \t]*,[ \t]*[A-Z]{1,3}\d+(?:\.\d+)*(?:@[0-9a-f]{6,64})?)*)")
+# A citation a SOURCE file may carry, in any comment style, bold or not:
+#   spec: S49, D30@a1b2c3d4e5        this code serves those rows
+#   spec-guard: S532.5@9f1a9e1e9d    this test verifies them (the first deployment's guard form)
+# Ids are separated by commas or spaces and may carry a level prefix (L4-V338) and "@<fingerprint>"
+# recording the row as last read ("@?" means not yet read). `scan` turns these into a child index.
+CITE_TOKEN = r"(?:L\d+-)?[A-Z]{1,3}\d+(?:\.\d+)*(?:@(?:[0-9a-f]{6,64}|\?))?"
+SOURCE_CITE_RE = re.compile(r"\*{0,2}\b(spec|spec-guard)[ \t]*:\*{0,2}[ \t]*(" + CITE_TOKEN + r"(?:[ \t]*,?[ \t]*" + CITE_TOKEN + r")*)")
+CITE_TOKEN_RE = re.compile(r"((?:L\d+-)?[A-Z]{1,3}\d+(?:\.\d+)*)(?:@([0-9a-f]{6,64}|\?))?")
 SUGGESTED_PARENT_RE = re.compile(r"Suggested parent[^:\n]*:[ \t]*([A-Z]{1,3}\d+(?:\.\d+)*(?:[ \t]*,[ \t]*[A-Z]{1,3}\d+(?:\.\d+)*)*)")
 
 # Files inside a level directory that hold editorial matter, never items: skipped by the parser.

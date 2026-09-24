@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from .components import Components
-from .parse import DOWNSTREAM_RELATIONS, SOURCE_CITE_RE, SUGGESTED_PARENT_RE, Finding, RELATIONS, parse_spec, split_qid
+from .parse import CITE_TOKEN_RE, DOWNSTREAM_RELATIONS, SOURCE_CITE_RE, SUGGESTED_PARENT_RE, Finding, RELATIONS, parse_spec, split_qid
 
 
 def norm_alias(a):
@@ -523,16 +523,26 @@ def source_citations(text):
     for n, line in enumerate(text.splitlines(), start=1):
         for m in SOURCE_CITE_RE.finditer(line):
             rel = "verifies" if m.group(1) == "spec-guard" else "serves"
-            ids = []
-            for tok in m.group(2).split(","):
-                tok = tok.strip()
-                if "@" in tok:
-                    iid, fp = tok.split("@", 1)
-                    ids.append((iid, fp))
-                else:
-                    ids.append((tok, None))
+            ids = [(tm.group(1), tm.group(2) if tm.group(2) and tm.group(2) != "?" else None)
+                   for tm in CITE_TOKEN_RE.finditer(m.group(2))]
             out.append((n, rel, ids))
     return out
+
+
+def resolve_local(spec, iid):
+    """The spec's id for a cited id: exact, or a free-kind id cited without its level prefix."""
+    if iid in spec.items:
+        return iid
+    core = split_qid(iid)
+    if core is None:
+        return None
+    _, bare = core
+    if "-" in bare:                                    # cited as L4-V2, written as V2 at L4
+        lvl, plain = bare.split("-", 1)
+        it = spec.items.get(plain)
+        return plain if it is not None and f"L{it.level}" == lvl else None
+    hits = [k for k in spec.items if k.endswith("-" + bare)]   # cited as V2, written as L4-V2
+    return hits[0] if len(hits) == 1 else None
 
 
 def covers(spec, ext, path, line=None):
@@ -560,7 +570,7 @@ def covers(spec, ext, path, line=None):
             text = ""
         for n, rel, ids in source_citations(text):
             for iid, fp in ids:
-                citations.append((n, rel, iid, fp))
+                citations.append((n, rel, resolve_local(spec, iid) or iid, fp))
         if line is not None and citations:
             above = [c for c in citations if c[0] <= line]
             nearest = max(c[0] for c in above) if above else min(c[0] for c in citations)
@@ -596,9 +606,10 @@ def scan_sources(spec, directory, name="code", max_bytes=2 * 1024 * 1024):
             rel = str(f)
         items[rel] = {"level": None, "kind": "F", "title": rel, "file": rel}
         for n, relation, ids in cites:
-            for iid, fp in ids:
-                if iid not in spec.items:
-                    unresolved.append((rel, n, iid))
+            for cited, fp in ids:
+                iid = resolve_local(spec, cited)
+                if iid is None:
+                    unresolved.append((rel, n, cited))
                     continue
                 entry = {"from": rel, "relation": relation, "to": f"{spec.name}:{iid}", "line": n}
                 if fp:
@@ -608,25 +619,24 @@ def scan_sources(spec, directory, name="code", max_bytes=2 * 1024 * 1024):
 
 
 def accept_in_source(spec, path):
-    """Rewrite every cited id in a source file to carry the row's current fingerprint. Returns the count rewritten."""
+    """Rewrite every cited id in a source file to carry the row's current fingerprint, keeping the
+    line's own separators and prefixes. Returns the count rewritten."""
     f = _refs_root(spec) / path
     text = f.read_text(encoding="utf-8")
     count = [0]
 
-    def fix(m):
-        toks = []
-        for tok in m.group(2).split(","):
-            tok = tok.strip()
-            iid = tok.split("@", 1)[0]
-            if iid in spec.items:
-                new = f"{iid}@{spec.fingerprint(iid)}"
-                if new != tok:
-                    count[0] += 1
-                toks.append(new)
-            else:
-                toks.append(tok)
-        return f"{m.group(1)}: " + ", ".join(toks)
-    new_text = SOURCE_CITE_RE.sub(fix, text)
+    def fix_token(tm):
+        iid = resolve_local(spec, tm.group(1))
+        if iid is None:
+            return tm.group(0)
+        new = f"{tm.group(1)}@{spec.fingerprint(iid)}"
+        if new != tm.group(0):
+            count[0] += 1
+        return new
+
+    def fix_line(m):
+        return m.group(0)[:m.start(2) - m.start(0)] + CITE_TOKEN_RE.sub(fix_token, m.group(2))
+    new_text = SOURCE_CITE_RE.sub(fix_line, text)
     if new_text != text:
         f.write_text(new_text, encoding="utf-8")
     return count[0]

@@ -39,6 +39,29 @@ class CitationTests(CoversCase):
         self.assertEqual(source_citations("# spec: G1, D2.1@abc123\n/* spec-guard : S1 */\nno cite"),
                          [(1, "serves", [("G1", None), ("D2.1", "abc123")]), (2, "verifies", [("S1", None)])])
 
+    def test_guard_form_of_the_first_deployment(self):
+        # space-separated, level-prefixed free kinds, @? for unread, bold markdown key
+        text = " * spec-guard: S1@0c87308d51 L4-V2@? D2.1\n**spec-guard:** S2@?\nspec: S1 S2, S3\n"
+        self.assertEqual(source_citations(text), [
+            (1, "verifies", [("S1", "0c87308d51"), ("L4-V2", None), ("D2.1", None)]),
+            (2, "verifies", [("S2", None)]),
+            (3, "serves", [("S1", None), ("S2", None), ("S3", None)])])
+        root = self.make({
+            "L0-purpose.md": "## G1 — One\n",
+            "L3-specs.md": "## S1 — S\nserves: G1\n",
+            "L4-realization/v.md": "## V2 — guard row\nverifies: S1\n",
+        }, manifest="name: t\nprofile: software\nrefs-root: ..\n")
+        (self.tmp / "t.test.ts").write_text(" * spec-guard: S1@? V2@?  L4-V2@?\n", encoding="utf-8")
+        spec = parse_spec(root)
+        index, unresolved = scan_sources(spec, ".")
+        self.assertEqual(unresolved, [])
+        self.assertEqual([l["to"] for l in index["links"]], ["t:S1", "t:V2", "t:V2"])
+        self.assertNotIn("accepted", index["links"][0])
+        code, out, _ = run("scan", "t.test.ts", "--accept", str(root))
+        self.assertEqual(code, 0)
+        line = (self.tmp / "t.test.ts").read_text()
+        self.assertRegex(line, r"^ \* spec-guard: S1@[0-9a-f]{10} V2@[0-9a-f]{10}  L4-V2@[0-9a-f]{10}\n$")
+
     def test_covers_lists_refs_citations_and_chain(self):
         root = self.build()
         code, out, _ = run("covers", "src/ledger.ts", str(root))
