@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "explain-spec"
+dynamic = ["version"]
+description = "Design documents as a linked ends-means hierarchy in plain markdown, and a tool that answers why, how and what-if"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ratsark/explain"
+
+[project.scripts]
+explain = "explain.cli:main"
+
+[tool.setuptools]
+packages = ["explain"]
+
+[tool.setuptools.package-data]
+explain = ["profiles/*.yaml"]
+
+[tool.setuptools.dynamic]
+version = { attr = "explain.__version__" }

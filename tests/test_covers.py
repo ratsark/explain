@@ -55,7 +55,7 @@ class CitationTests(CoversCase):
         spec = parse_spec(root)
         index, unresolved = scan_sources(spec, ".")
         self.assertEqual(unresolved, [])
-        self.assertEqual([l["to"] for l in index["links"]], ["t:S1", "t:V2", "t:V2"])
+        self.assertEqual([l["to"] for l in index["links"]], ["t:S1", "t:V2"])
         self.assertNotIn("accepted", index["links"][0])
         code, out, _ = run("scan", "t.test.ts", "--accept", str(root))
         self.assertEqual(code, 0)
@@ -121,6 +121,10 @@ class CitationTests(CoversCase):
         self.assertIn("ROW CHANGED", out)
         self.assertIn("fingerprint current", out)
         self.assertIn("code:src/ledger.ts", out)
+        # D1 lies on S1's chain, so the chain is printed once, from S1
+        chains = out.split("up-chain to the top:")[1]
+        self.assertEqual(chains.count("\n  D1 — "), 0)
+        self.assertIn("\n  S1 — ", chains)
 
     def test_orphans_suggested(self):
         root = self.build()
@@ -131,3 +135,24 @@ class CitationTests(CoversCase):
         self.assertIn("S1         -> D2", out)
         self.assertIn("S2         -> D1  (unknown: D9)", out)
         self.assertIn("2 rows", out)
+
+
+class DiscoveryTests(SpecCase):
+    def test_bare_commands_find_the_spec_like_git(self):
+        import os
+        root = self.make({"L0-purpose.md": "## G1 — One\n"}, subdir="proj/spec")
+        deep = self.tmp / "proj" / "src" / "deep"
+        deep.mkdir(parents=True)
+        from explain.cli import locate_spec
+        self.assertEqual(locate_spec(str(root)), root.resolve())
+        self.assertEqual(locate_spec(str(self.tmp / "proj")), root.resolve())
+        self.assertIsNone(locate_spec(str(deep)))            # an explicit path is not walked upward
+        cwd = os.getcwd()
+        os.chdir(deep)
+        try:
+            self.assertEqual(locate_spec(), root.resolve())
+            code, out, _ = run("g1")
+            self.assertEqual(code, 0)
+            self.assertIn("G1 — One", out)
+        finally:
+            os.chdir(cwd)

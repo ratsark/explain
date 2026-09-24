@@ -1,0 +1,10 @@
+name: trash
+title: trash, an rm you can take back (example)
+profile: software
+root: G0 # the mission; every other goal serves it
+refs-root: .. # refs: paths are relative to examples/trash
+children:
+  # The code's own citations (`spec:` and `spec-guard:` lines), gathered by
+  # `explain scan src` and `explain scan tests`; see README.md.
+  - name: code
+    index: code-index.json

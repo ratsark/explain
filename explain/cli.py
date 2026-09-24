@@ -14,12 +14,31 @@ from .profile import PROFILE_DIR, ProfileError, load_profile
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
 
 
+def locate_spec(path="."):
+    """The spec directory for PATH: PATH itself if it holds spec.yaml, else PATH/spec; when PATH
+    is the default ".", the same test is repeated in each parent directory, the way git finds its
+    repository. None if nothing is found."""
+    start = Path(path).resolve()
+    candidates = [start] + (list(start.parents) if path in (".", "") else [])
+    for d in candidates:
+        if (d / "spec.yaml").is_file():
+            return d
+        if (d / "spec" / "spec.yaml").is_file():
+            return d / "spec"
+    return None
+
+
 def _spec(path):
     root = Path(path)
     if not root.is_dir():
         print(f"error: {path} is not a directory", file=sys.stderr)
         return None
-    return parse_spec(root)
+    found = locate_spec(path)
+    if found is None:
+        where = "here or in any parent directory" if path in (".", "") else f"in {path} or {path}/spec"
+        print(f"error: no spec.yaml {where}; pass the spec directory, or `explain init` one", file=sys.stderr)
+        return None
+    return parse_spec(found)
 
 
 def _find(spec, raw):
@@ -281,8 +300,19 @@ def cmd_covers(args):
         print(f"nothing names {target}: no row's refs, no citation in the file, no child item")
         return 1
     print("\nup-chain to the top:")
-    for iid in sorted(found, key=_idkey):
-        tree = upstream(spec, iid, ext)
+    trees = {iid: upstream(spec, iid, ext) for iid in found}
+
+    def ids_in(node, acc):
+        acc.add(node[0])
+        for kid in node[2]:
+            ids_in(kid, acc)
+        return acc
+    # a row already on another found row's chain is printed there, not again
+    inner = set()
+    for iid, tree in trees.items():
+        inner |= ids_in(tree, set()) - {iid}
+    for iid in sorted(found - inner, key=_idkey):
+        tree = trees[iid]
 
         def walk(node, indent):
             nid, title, kids = node

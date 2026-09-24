@@ -1,6 +1,10 @@
 # Development
 
-Managed by Claude. Python 3.9+ standard library only; no install step.
+Managed by Claude. Python 3.9+ standard library only. No install step is
+needed to develop; `pyproject.toml` exists so users can `pip install` or
+`pipx install` the repo and get an `explain` command (entry point
+`explain.cli:main`, profiles shipped as package data). Check a packaging
+change with `python3 -m venv /tmp/v && /tmp/v/bin/pip install . && /tmp/v/bin/explain --version`.
 
 ## Layout
 
@@ -12,6 +16,7 @@ research/             background reports and synthesis
 spec/                 explain's own spec: the format applied to itself (tests/test_dogfood.py keeps it honest)
 examples/aircraft/    illustrative parent spec
 examples/cas/         illustrative child spec (collision avoidance), nested under aircraft
+examples/trash/       the README tour: a working rm replacement with a full five-level spec, code citations and tests
 explain/              the tool
   miniyaml.py           strict YAML subset (no PyYAML)
   profile.py            level sets, kinds, section trees
@@ -30,10 +35,18 @@ python3 -m unittest discover -s tests -t .
 
 This is the gate. Every error and report code in ARCHITECTURE.md section 9 has
 a test that triggers it and asserts the severity and count.
-`tests/test_example.py` is a golden test on the example pair. Adopting
+`tests/test_example.py` is a golden test on the example pair, and keeps
+`examples/trash` clean: no errors, no drift, a current code index, and the
+program's own tests passing. The README quotes real output from that example;
+after changing it, re-run the quoted commands and update the README. Adopting
 projects keep their own corpus checks in their own repos.
 
 ## Run
+
+With no path argument, commands find the spec the way git finds a repository:
+`spec.yaml` or `spec/spec.yaml` in the current directory, then in each parent.
+An explicit path is used as given (it may be the spec directory or the
+directory holding `spec/`).
 
 ```
 python3 -m explain init venture --profile business  # scaffold a new spec directory

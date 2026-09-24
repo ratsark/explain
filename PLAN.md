@@ -127,6 +127,20 @@ existing cross-spec drift then watches, `scan FILE --accept`, and
 fingerprint is untracked; with one it goes suspect when the row's design
 body changes and `covers` says so on the line.
 
+## Phase 4c — Introduction _(landed 2026-09-24)_
+
+The README rewritten as the introduction to point people at: the idea, a tour
+with real output, install, first steps. `examples/trash` added for the tour:
+a working `rm` replacement with a full five-level spec, `spec:` citations in
+its code, `spec-guard:` lines in its tests, and a drift baseline. Supporting
+changes: git-style spec discovery so a bare `explain g1` works anywhere in a
+project; `pyproject.toml` for `pip`/`pipx` installs; `scan` merges a row cited
+twice in one file; `covers` prints each chain once.
+
+**Acceptance:** met. `tests/test_example.py` keeps the example clean and its
+program's tests passing; every command output quoted in the README was
+produced by the tool on the committed example.
+
 ## Phase 5 — Dogfood _(complete 2026-09-13)_
 
 explain's own spec under `spec/`: mission and goals at L0, the format's

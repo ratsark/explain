@@ -587,7 +587,7 @@ def scan_sources(spec, directory, name="code", max_bytes=2 * 1024 * 1024):
     citation has one. Returns (index dict, [(path, lineno, id) unresolved ids])."""
     base = _refs_root(spec)
     root = (base / directory).resolve() if not Path(directory).is_absolute() else Path(directory)
-    items, links, unresolved = {}, [], []
+    items, links, unresolved, seen = {}, [], [], set()
     for f in sorted(root.rglob("*")):
         if not f.is_file() or any(part in SKIP_SCAN_DIRS for part in f.relative_to(root).parts):
             continue
@@ -614,6 +614,10 @@ def scan_sources(spec, directory, name="code", max_bytes=2 * 1024 * 1024):
                 entry = {"from": rel, "relation": relation, "to": f"{spec.name}:{iid}", "line": n}
                 if fp:
                     entry["accepted"] = fp
+                key = (rel, relation, entry["to"], fp)
+                if key in seen:          # the same row cited twice in one file with the same pin: one link
+                    continue
+                seen.add(key)
                 links.append(entry)
     return {"name": name, "title": f"source citations under {directory}", "items": items, "links": links}, unresolved
 

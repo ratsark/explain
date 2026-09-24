@@ -171,3 +171,11 @@ source: explain issue #6; the first deployment's "Suggested parent (unrecorded i
 
 `orphans --suggested` lists the rows carrying the note with the ids it
 names; promotion is a human writing `serves:` into the header.
+
+## S24 — With no path, the spec is found the way git finds a repository
+status: adopted
+serves: D17
+source: user, 2026-09-24 ("explain g1" instead of a module path and a spec path); ARCHITECTURE.md § 9
+
+`spec.yaml` or `spec/spec.yaml` here, then in each parent. An explicit path
+is taken as given and never walked upward.

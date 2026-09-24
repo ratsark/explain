@@ -363,6 +363,11 @@ can be copied into any repo's `tools/`. The tool and the project are named
 over clever, and never silently incomplete. Every pattern it matches is printed
 by `--patterns`; every known miss is declared.
 
+With no path argument every command finds the spec the way git finds a
+repository: `spec.yaml` or `spec/spec.yaml` in the current directory, then in
+each parent. So `explain g1` works anywhere inside a project, and ids are
+case-insensitive when typed.
+
 Header lines and manifests are parsed as a strict, documented YAML subset
 (scalars, flow lists, block lists, one level of nesting for the manifest)
 rather than by PyYAML, to keep the tool dependency-free.

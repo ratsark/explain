@@ -115,7 +115,7 @@ status: adopted
 built: shipped
 verifies: D12
 part-of: D2
-refs: [tests/test_example.py, examples/aircraft, examples/cas]
+refs: [tests/test_example.py, examples/aircraft, examples/cas, examples/trash]
 
 The nested example pair reports exactly what it was written to show.
 
@@ -132,7 +132,7 @@ ARCHITECTURE.md section is cited by at least one row.
 ## V10 — tests/test_covers.py
 status: adopted
 built: shipped
-verifies: [S21, S22, S23]
+verifies: [S21, S22, S23, S24]
 part-of: D2
 refs: [tests/test_covers.py]
 

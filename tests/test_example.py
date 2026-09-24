@@ -76,3 +76,40 @@ class AllocationTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("D1", out.getvalue()); self.assertIn("cas:G1", out.getvalue()); self.assertIn("discharged-by D2", out.getvalue())
         self.assertIn("1 of 3 design elements", out.getvalue())
+
+
+class TrashExampleTests(unittest.TestCase):
+    """examples/trash is the README's walkthrough: a full five-level spec over working code."""
+
+    ROOT = EXAMPLES / "trash"
+
+    def setUp(self):
+        self.spec = parse_spec(self.ROOT / "spec")
+        self.findings = run_checks(self.spec)
+
+    def test_clean(self):
+        from explain.components import Components
+        self.assertEqual([f.format() for f in self.findings if f.severity == "error"], [])
+        codes = Counter(f.code for f in self.findings if f.severity == "report")
+        # what is left is honest: beliefs about users nothing guarantees, and elided sections
+        self.assertEqual(set(codes) - {"sections-absent"}, {"undischarged-assumption"})
+        self.assertEqual(sorted(self.spec.levels), [0, 1, 2, 3, 4])
+        self.assertEqual(Components(self.spec).crossings(), [])
+
+    def test_code_index_is_current_and_nothing_drifted(self):
+        import json
+        from explain.checks import child_suspects, scan_sources, suspects
+        committed = json.loads((self.ROOT / "spec" / "code-index.json").read_text())
+        fresh, unresolved = scan_sources(self.spec, ".")
+        self.assertEqual(unresolved, [])
+        self.assertEqual(fresh["links"], committed["links"], "re-run: explain scan . -o spec/code-index.json spec")
+        ext = externals(self.spec)
+        self.assertEqual(suspects(self.spec, ext), [])
+        self.assertEqual(child_suspects(self.spec, ext), [])
+
+    def test_the_example_program_passes_its_own_tests(self):
+        import subprocess
+        import sys
+        r = subprocess.run([sys.executable, "-m", "unittest", "discover", "tests"], cwd=self.ROOT,
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])

@@ -3,3 +3,5 @@ __pycache__/
 .pytest_cache/
 *.index.json
 !examples/**/parents/*.index.json
+build/
+*.egg-info/

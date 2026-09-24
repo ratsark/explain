@@ -1,0 +1,344 @@
+{
+  "name": "code",
+  "title": "source citations under .",
+  "items": {
+    "src/trash/can.py": {
+      "level": null,
+      "kind": "F",
+      "title": "src/trash/can.py",
+      "file": "src/trash/can.py"
+    },
+    "src/trash/cli.py": {
+      "level": null,
+      "kind": "F",
+      "title": "src/trash/cli.py",
+      "file": "src/trash/cli.py"
+    },
+    "src/trash/empty.py": {
+      "level": null,
+      "kind": "F",
+      "title": "src/trash/empty.py",
+      "file": "src/trash/empty.py"
+    },
+    "src/trash/move.py": {
+      "level": null,
+      "kind": "F",
+      "title": "src/trash/move.py",
+      "file": "src/trash/move.py"
+    },
+    "src/trash/put.py": {
+      "level": null,
+      "kind": "F",
+      "title": "src/trash/put.py",
+      "file": "src/trash/put.py"
+    },
+    "src/trash/restore.py": {
+      "level": null,
+      "kind": "F",
+      "title": "src/trash/restore.py",
+      "file": "src/trash/restore.py"
+    },
+    "tests/test_trash.py": {
+      "level": null,
+      "kind": "F",
+      "title": "tests/test_trash.py",
+      "file": "tests/test_trash.py"
+    }
+  },
+  "links": [
+    {
+      "from": "src/trash/can.py",
+      "relation": "serves",
+      "to": "trash:D1",
+      "line": 3,
+      "accepted": "2dda9b9122"
+    },
+    {
+      "from": "src/trash/can.py",
+      "relation": "serves",
+      "to": "trash:S2",
+      "line": 3,
+      "accepted": "82c356c26c"
+    },
+    {
+      "from": "src/trash/can.py",
+      "relation": "serves",
+      "to": "trash:S9",
+      "line": 3,
+      "accepted": "66901becb0"
+    },
+    {
+      "from": "src/trash/cli.py",
+      "relation": "serves",
+      "to": "trash:D5",
+      "line": 3,
+      "accepted": "7c20a04012"
+    },
+    {
+      "from": "src/trash/cli.py",
+      "relation": "serves",
+      "to": "trash:P3",
+      "line": 3,
+      "accepted": "17f9886937"
+    },
+    {
+      "from": "src/trash/cli.py",
+      "relation": "serves",
+      "to": "trash:S6",
+      "line": 3,
+      "accepted": "c1085aa6d5"
+    },
+    {
+      "from": "src/trash/cli.py",
+      "relation": "serves",
+      "to": "trash:S8",
+      "line": 3,
+      "accepted": "1f65af996e"
+    },
+    {
+      "from": "src/trash/empty.py",
+      "relation": "serves",
+      "to": "trash:D4",
+      "line": 3,
+      "accepted": "ec606da69e"
+    },
+    {
+      "from": "src/trash/empty.py",
+      "relation": "serves",
+      "to": "trash:P1",
+      "line": 3,
+      "accepted": "ec60e192cb"
+    },
+    {
+      "from": "src/trash/empty.py",
+      "relation": "serves",
+      "to": "trash:S4",
+      "line": 3,
+      "accepted": "54a885a968"
+    },
+    {
+      "from": "src/trash/move.py",
+      "relation": "serves",
+      "to": "trash:P2",
+      "line": 3,
+      "accepted": "2602edf1b7"
+    },
+    {
+      "from": "src/trash/move.py",
+      "relation": "serves",
+      "to": "trash:D6",
+      "line": 3,
+      "accepted": "66ddcfadcc"
+    },
+    {
+      "from": "src/trash/move.py",
+      "relation": "serves",
+      "to": "trash:S10",
+      "line": 3,
+      "accepted": "cfc99d2a43"
+    },
+    {
+      "from": "src/trash/move.py",
+      "relation": "serves",
+      "to": "trash:S7",
+      "line": 34,
+      "accepted": "86185d4e04"
+    },
+    {
+      "from": "src/trash/put.py",
+      "relation": "serves",
+      "to": "trash:D2",
+      "line": 3,
+      "accepted": "fc94e5a920"
+    },
+    {
+      "from": "src/trash/put.py",
+      "relation": "serves",
+      "to": "trash:S1",
+      "line": 3,
+      "accepted": "4e9cc2b09f"
+    },
+    {
+      "from": "src/trash/put.py",
+      "relation": "serves",
+      "to": "trash:S3",
+      "line": 3,
+      "accepted": "0eefe6edd6"
+    },
+    {
+      "from": "src/trash/put.py",
+      "relation": "serves",
+      "to": "trash:S7",
+      "line": 3,
+      "accepted": "86185d4e04"
+    },
+    {
+      "from": "src/trash/restore.py",
+      "relation": "serves",
+      "to": "trash:D3",
+      "line": 3,
+      "accepted": "fdca28b6a1"
+    },
+    {
+      "from": "src/trash/restore.py",
+      "relation": "serves",
+      "to": "trash:S5",
+      "line": 3,
+      "accepted": "751a0d2781"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:G1",
+      "line": 52,
+      "accepted": "522e594d1a"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:D2",
+      "line": 52,
+      "accepted": "fc94e5a920"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:D3",
+      "line": 52,
+      "accepted": "fdca28b6a1"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:D1",
+      "line": 65,
+      "accepted": "2dda9b9122"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:S1",
+      "line": 65,
+      "accepted": "4e9cc2b09f"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:S2",
+      "line": 65,
+      "accepted": "82c356c26c"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:S10",
+      "line": 95,
+      "accepted": "cfc99d2a43"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:C2",
+      "line": 95,
+      "accepted": "056f8c570c"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:P2",
+      "line": 95,
+      "accepted": "2602edf1b7"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:D6",
+      "line": 95,
+      "accepted": "66ddcfadcc"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:C1",
+      "line": 122,
+      "accepted": "0997b6c388"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:P5",
+      "line": 122,
+      "accepted": "614ed69307"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:S3",
+      "line": 122,
+      "accepted": "0eefe6edd6"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:S5",
+      "line": 122,
+      "accepted": "751a0d2781"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:S7",
+      "line": 122,
+      "accepted": "86185d4e04"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:P1",
+      "line": 155,
+      "accepted": "ec60e192cb"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:D4",
+      "line": 155,
+      "accepted": "ec606da69e"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:S4",
+      "line": 155,
+      "accepted": "54a885a968"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:G2",
+      "line": 173,
+      "accepted": "a461ec0df3"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:P3",
+      "line": 173,
+      "accepted": "17f9886937"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:S6",
+      "line": 173,
+      "accepted": "c1085aa6d5"
+    },
+    {
+      "from": "tests/test_trash.py",
+      "relation": "verifies",
+      "to": "trash:S8",
+      "line": 173,
+      "accepted": "1f65af996e"
+    }
+  ]
+}
