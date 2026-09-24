@@ -394,7 +394,7 @@ Commands, v0:
 | `explain assumptions` | Every `A` item and what discharges it. |
 | `explain allocations` | The parent's view: for each item here, the child items (from `children:` in the manifest) that serve it; the child assumptions this spec discharges; design elements no child serves yet. |
 | `explain accept ID... \| --all` | Record that the links from these items were read against their targets as they are now (section 12). |
-| `explain drift` | Accepted links whose targets changed since: what to re-read, grouped by changed target. |
+| `explain drift` | Accepted links whose targets changed since: what to re-read, grouped by changed target, then the same for links from children. Exit 0 when nothing drifted and 1 when anything did, so it can gate like `git diff --exit-code`. |
 | `explain review [L1]` | Walk a level item by item: status, links with target titles, flags, body. No level: status counts per level against `adopted-through`. |
 | `explain coupling` | Components: cohesion, links between them, cycles, boundary crossings, cross-cutting and overdetermined items (section 13). |
 | `explain interfaces [D201]` | A component's guarantees (interface items and who outside depends on them) and requirements (its assumptions and what discharges them). |

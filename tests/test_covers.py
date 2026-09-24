@@ -113,9 +113,11 @@ class CitationTests(CoversCase):
         self.assertRegex(text, r"// spec: D1@[0-9a-f]{10}, S1@[0-9a-f]{10}")
         run("scan", "src", "-o", str(self.tmp / "code-index.json"), str(root))
         code, out, _ = run("drift", str(root))
+        self.assertEqual(code, 0)
         self.assertNotIn("in children", out)
         (root / "L3-specs.md").write_text((root / "L3-specs.md").read_text().replace("## S2 — T", "## S2 — T changed"), encoding="utf-8")
         code, out, _ = run("drift", str(root))
+        self.assertEqual(code, 1)                       # drift only in a child still fails the gate
         self.assertIn("in children (1 link", out); self.assertIn("S2 — T changed", out)
         code, out, _ = run("covers", "src/ledger.ts", str(root))
         self.assertIn("ROW CHANGED", out)

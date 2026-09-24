@@ -573,7 +573,7 @@ def cmd_drift(args):
         print(f"no drift here: {tracked} accepted link(s) all point at unchanged targets"
               + ("" if tracked else f" (nothing is tracked yet; `explain accept --all` to start)"))
         _print_child_suspects(spec, ext)
-        return 1 if not child_suspects(spec, ext) else 0
+        return 1 if child_suspects(spec, ext) else 0
     by_target = {}
     for it, link, old, cur in rows:
         by_target.setdefault((link.target, old, cur), []).append((it, link))
@@ -588,7 +588,7 @@ def cmd_drift(args):
         print(f"  then: explain accept {' '.join(sorted({it.id for it, _ in deps}, key=_idkey))}")
     print(f"{len(rows)} suspect link(s) across {len(by_target)} changed target(s); {tracked} accepted in total")
     _print_child_suspects(spec, ext)
-    return 0
+    return 1
 
 
 def _print_child_suspects(spec, ext):
@@ -785,7 +785,7 @@ def build_parser():
     s.add_argument("targets", nargs="*", help="item ids, optionally followed by the spec directory")
     s.add_argument("--all", action="store_true", help="every link in the spec")
     s.set_defaults(fn=cmd_accept)
-    add("drift", cmd_drift, "accepted links whose targets changed since: what to re-read")
+    add("drift", cmd_drift, "accepted links whose targets changed since: what to re-read; exit 1 if anything drifted, here or in children, 0 if clean")
     add("coupling", cmd_coupling, "components: cohesion, links between them, cycles, boundary crossings, cross-cutting and overdetermined items")
     s = sub.add_parser("interfaces", help="a component's guarantees (interface items and who depends on them) and requirements (assumptions and what discharges them)")
     s.add_argument("targets", nargs="*", help="component ids, optionally followed by the spec directory")
