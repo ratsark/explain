@@ -42,6 +42,12 @@ MENTION_RE = re.compile(r"\[\[[ \t]*(" + QID_CORE + r")[ \t]*\]\]")
 
 FENCE_RE = re.compile(r"^[ \t]*(```|~~~)")
 
+# A citation a SOURCE file may carry, in any comment style: "spec: S49, D30@a1b2c3d4e5" (the code
+# serves those rows) or "spec-guard: S532.5@9f1a9e1e9d" (the test verifies them). Ids may carry
+# "@<fingerprint>" recording the row as last read; `scan` turns these into a child index.
+SOURCE_CITE_RE = re.compile(r"\b(spec|spec-guard)[ \t]*:[ \t]*((?:[A-Z]{1,3}\d+(?:\.\d+)*(?:@[0-9a-f]{6,64})?)(?:[ \t]*,[ \t]*[A-Z]{1,3}\d+(?:\.\d+)*(?:@[0-9a-f]{6,64})?)*)")
+SUGGESTED_PARENT_RE = re.compile(r"Suggested parent[^:\n]*:[ \t]*([A-Z]{1,3}\d+(?:\.\d+)*(?:[ \t]*,[ \t]*[A-Z]{1,3}\d+(?:\.\d+)*)*)")
+
 # Files inside a level directory that hold editorial matter, never items: skipped by the parser.
 EDITORIAL_FILE_RE = re.compile(r"^(README|NOTES|HISTORY)\.md$|\.notes\.md$", re.IGNORECASE)
 # A paragraph whose first line starts with one of these words is editorial: kept in the file for
@@ -94,6 +100,7 @@ DECLARED_MISSES = [
     "Boundary checks cover serves, depends-on and assumes between local items; verifies, conflicts-with, supersedes and cross-spec links are not boundary-checked.",
     "Inside a level directory, README.md, NOTES.md, HISTORY.md and *.notes.md are skipped entirely: editorial files, never items.",
     "A body paragraph whose first line starts with Editorial:, History:, Provenance:, Note: or Transcription: is editorial: shown only by show --editorial, excluded from the fingerprint, but its typed links and mentions still count.",
+    "Source citations are read only by scan and covers, never by check: a 'spec:' or 'spec-guard:' line in a source file becomes a child-index link, and drift sees it once that index is declared under children.",
     "With root: declared in the manifest, every other top-level item of the root's kind at the top level is taken to serve it (an implied serves link, shown as such); explicit serves: to the root is allowed and not reported.",
 ]
 

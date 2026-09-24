@@ -146,3 +146,28 @@ source: user agreement 2026-09-12; ARCHITECTURE.md § 11
 MISSION_STATEMENT is L0's mission, REQUIREMENTS is L0, ARCHITECTURE is L2 with
 its decisions at L3, DEVELOPMENT is L4; PLAN.md is Leveson's Level 0, program
 management, orthogonal to the stack.
+
+## S21 — Source files cite rows; the checker reads the citations only through a scanned child index
+status: adopted
+serves: [D12, D13]
+source: fitribe audit 2026-09-24 (explain issue #6); ARCHITECTURE.md § 12
+
+`spec: S49, D30` and `spec-guard: S1` are the two citation forms, each id
+optionally `@fingerprint`. `scan` makes the index; `check` never opens
+source, so a spec is checkable without its code.
+
+## S22 — covers answers "what governs this file" from refs, the file's own citations and child indexes
+status: adopted
+serves: D17
+source: explain issue #6; ARCHITECTURE.md § 9, § 12
+
+With a line, the nearest citation at or above it wins; every row found is
+followed by its chain to the top, so one call replaces `grep` plus `why`.
+
+## S23 — A suggested parent is a promotable note, never a link
+status: adopted
+serves: [D16, P5]
+source: explain issue #6; the first deployment's "Suggested parent (unrecorded in source)" convention
+
+`orphans --suggested` lists the rows carrying the note with the ids it
+names; promotion is a human writing `serves:` into the header.

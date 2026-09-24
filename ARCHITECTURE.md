@@ -373,6 +373,9 @@ Commands, v0:
 |---|---|
 | `explain init NAME [DIR] --profile P` | Scaffold a new spec: manifest, one file per level with the profile's sections, a README stub. |
 | `explain check [path]` | All errors and reports for a spec, with file and line. Exit 1 on errors, 0 otherwise; `--strict` promotes reports. |
+| `explain covers PATH[:LINE] [path]` | Which rows and child items name a source file (refs, `spec:` citations in the file, child indexes), narrowed to the nearest citation when a line is given, and each row's chain to the top. |
+| `explain scan DIR [path]` | A child index built from `spec:`/`spec-guard:` citations in source files under DIR (`-o FILE` writes it; `FILE --accept` refreshes one file's citation fingerprints). |
+| `explain orphans --suggested [path]` | Rows carrying "Suggested parent (unrecorded in source): X" as a promotable list; promoting one means writing `serves: X` into its header. |
 | `explain show ID` | "What is G2": heading, header, body (design paragraphs), location, computed inverses. `--editorial` adds the editorial paragraphs. |
 | `explain serves ID` | Everything downstream via every relation, transitively, here and in declared children: the re-evaluation sweep (what to re-read if ID changes). `how` is the means-ends tree; `serves` is the blast radius. |
 | `explain why ID` | The upward tree from ID to the top: what it exists for. |
@@ -504,6 +507,20 @@ exactly what to re-read. This is Doorstop's mechanism, adapted.
   direction, a child's exported links carry the fingerprint it accepted, so
   the parent's `drift` can say which child items (tests, review rules) must
   be re-reviewed because a row here moved.
+- **Source citations.** Code is the last child. A source file may carry a
+  comment line `spec: S49, D30` (this code serves those rows) or
+  `spec-guard: S532.5` (this test verifies them), in any comment style; each
+  id may carry `@<fingerprint>` recording the row as last read. `explain scan
+  DIR -o code.index.json` turns every such line under DIR into a child index
+  (one item per file, one link per citation, `accepted` from the `@`), and
+  once the manifest declares that index under `children:` the parent's
+  `drift` and `check` treat a stale citation exactly like a stale child link.
+  `explain scan FILE --accept` rewrites a file's citations with the rows'
+  current fingerprints after the code has been re-read. `check` never reads
+  source itself: the citations reach it only through the scanned index, so a
+  spec stays checkable without its code present. `explain covers PATH[:LINE]`
+  answers the other direction: which rows name this file (through `refs`, the
+  file's own citations, or any child index), and their chain to the top.
 
 ## 13. Components and boundaries
 

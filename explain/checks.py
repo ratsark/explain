@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from .components import Components
-from .parse import DOWNSTREAM_RELATIONS, Finding, RELATIONS, parse_spec, split_qid
+from .parse import DOWNSTREAM_RELATIONS, SOURCE_CITE_RE, SUGGESTED_PARENT_RE, Finding, RELATIONS, parse_spec, split_qid
 
 
 def norm_alias(a):
@@ -504,6 +504,142 @@ def allocations(spec):
             elif l.get("relation") == "discharged-by" and meta.get("kind") == "A":
                 obligations.append((name, citem, q[1]))
     return served, obligations, unresolved
+
+
+def _refs_root(spec):
+    return (spec.root / str(spec.manifest.get("refs-root") or ".")).resolve()
+
+
+def _path_matches(ref, path):
+    """A refs entry names `path` if it is the path, a directory above it, or a file inside a path that is a directory."""
+    ref = ref.rstrip("/")
+    path = path.rstrip("/")
+    return ref == path or path.startswith(ref + "/") or ref.startswith(path + "/")
+
+
+def source_citations(text):
+    """[(lineno, relation, [(id, fingerprint-or-None)])] for every spec:/spec-guard: line in a source text."""
+    out = []
+    for n, line in enumerate(text.splitlines(), start=1):
+        for m in SOURCE_CITE_RE.finditer(line):
+            rel = "verifies" if m.group(1) == "spec-guard" else "serves"
+            ids = []
+            for tok in m.group(2).split(","):
+                tok = tok.strip()
+                if "@" in tok:
+                    iid, fp = tok.split("@", 1)
+                    ids.append((iid, fp))
+                else:
+                    ids.append((tok, None))
+            out.append((n, rel, ids))
+    return out
+
+
+def covers(spec, ext, path, line=None):
+    """Rows and child items that name a source path.
+    Returns (rows_by_refs: [item], child_items: [(child, id, title, relation)], citations: [(lineno, relation, id, fp)]).
+    With a line, citations are narrowed to the nearest citation at or above it."""
+    path = path.replace("\\", "/").rstrip("/")
+    rows = [it for it in spec.items.values()
+            if any(_path_matches(str(r), path) for r in (it.header.get("refs") or []))]
+    child_items = []
+    for name, e in ext.items():
+        if e.ids is None:
+            continue
+        for iid, meta in e.ids.items():
+            names = [iid] + [str(x) for x in (meta.get("refs") or [])] + ([str(meta["file"])] if meta.get("file") else [])
+            if any(_path_matches(n, path) for n in names):
+                rels = sorted({l["relation"] for l in e.links if l.get("from") == iid}) or ["-"]
+                child_items.append((name, iid, meta.get("title", ""), ", ".join(rels)))
+    citations = []
+    f = _refs_root(spec) / path
+    if f.is_file():
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            text = ""
+        for n, rel, ids in source_citations(text):
+            for iid, fp in ids:
+                citations.append((n, rel, iid, fp))
+        if line is not None and citations:
+            above = [c for c in citations if c[0] <= line]
+            nearest = max(c[0] for c in above) if above else min(c[0] for c in citations)
+            citations = [c for c in citations if c[0] == nearest]
+    return rows, child_items, citations
+
+
+SKIP_SCAN_DIRS = {".git", "node_modules", "dist", "build", "out", "coverage", "__pycache__", ".venv", "venv", "target", ".next", ".wrangler"}
+
+
+def scan_sources(spec, directory, name="code", max_bytes=2 * 1024 * 1024):
+    """Build a child index from spec:/spec-guard: citations in source files under `directory`.
+    Items are keyed by path (relative to refs-root); links carry the accepted fingerprint when the
+    citation has one. Returns (index dict, [(path, lineno, id) unresolved ids])."""
+    base = _refs_root(spec)
+    root = (base / directory).resolve() if not Path(directory).is_absolute() else Path(directory)
+    items, links, unresolved = {}, [], []
+    for f in sorted(root.rglob("*")):
+        if not f.is_file() or any(part in SKIP_SCAN_DIRS for part in f.relative_to(root).parts):
+            continue
+        try:
+            if f.stat().st_size > max_bytes:
+                continue
+            text = f.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        cites = source_citations(text)
+        if not cites:
+            continue
+        try:
+            rel = str(f.relative_to(base))
+        except ValueError:
+            rel = str(f)
+        items[rel] = {"level": None, "kind": "F", "title": rel, "file": rel}
+        for n, relation, ids in cites:
+            for iid, fp in ids:
+                if iid not in spec.items:
+                    unresolved.append((rel, n, iid))
+                    continue
+                entry = {"from": rel, "relation": relation, "to": f"{spec.name}:{iid}", "line": n}
+                if fp:
+                    entry["accepted"] = fp
+                links.append(entry)
+    return {"name": name, "title": f"source citations under {directory}", "items": items, "links": links}, unresolved
+
+
+def accept_in_source(spec, path):
+    """Rewrite every cited id in a source file to carry the row's current fingerprint. Returns the count rewritten."""
+    f = _refs_root(spec) / path
+    text = f.read_text(encoding="utf-8")
+    count = [0]
+
+    def fix(m):
+        toks = []
+        for tok in m.group(2).split(","):
+            tok = tok.strip()
+            iid = tok.split("@", 1)[0]
+            if iid in spec.items:
+                new = f"{iid}@{spec.fingerprint(iid)}"
+                if new != tok:
+                    count[0] += 1
+                toks.append(new)
+            else:
+                toks.append(tok)
+        return f"{m.group(1)}: " + ", ".join(toks)
+    new_text = SOURCE_CITE_RE.sub(fix, text)
+    if new_text != text:
+        f.write_text(new_text, encoding="utf-8")
+    return count[0]
+
+
+def suggested_parents(spec):
+    """[(item, [ids])] for rows whose body carries 'Suggested parent (unrecorded in source): X, Y'."""
+    out = []
+    for it in spec.items.values():
+        m = SUGGESTED_PARENT_RE.search(it.body)
+        if m:
+            out.append((it, [x.strip() for x in m.group(1).split(",")]))
+    return sorted(out, key=lambda r: (r[0].level, str(r[0].file), r[0].line))
 
 
 def connectivity(spec):

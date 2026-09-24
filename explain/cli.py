@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .checks import ChildItem, accept, allocations, child_suspects, connectivity, downstream, downward_tree, export_index, externals, find_alias, inbound, questions, run_checks, suspects, upstream
+from .checks import ChildItem, accept, accept_in_source, allocations, child_suspects, connectivity, covers, downstream, downward_tree, export_index, externals, find_alias, inbound, questions, run_checks, scan_sources, suggested_parents, suspects, upstream
 from .components import Components
 from .profile import PROFILE_DIR, ProfileError, load_profile
 from .parse import ACCEPTED_FILE, DOWNSTREAM_RELATIONS, RELATIONS, parse_spec, patterns_text, save_accepted, split_qid
@@ -230,11 +230,87 @@ def cmd_orphans(args):
     spec = _spec(args.path)
     if spec is None:
         return 2
+    if args.suggested:
+        rows = suggested_parents(spec)
+        for it, ids in rows:
+            ok = [i for i in ids if i in spec.items]
+            bad = [i for i in ids if i not in spec.items]
+            print(f"{it.id:10} -> {', '.join(ok)}" + (f"  (unknown: {', '.join(bad)})" if bad else "") + f"  {it.title[:50]}")
+        print(f"{len(rows)} rows with a suggested parent; promote one with `serves: <id>` in the row's header")
+        return 0 if rows else 1
     rows = [x for x in run_checks(spec) if x.code in ("orphan", "derived-from-parent")]
     for x in rows:
         print(x.format())
     print(f"{len(rows)} orphans")
     return 0 if rows else 1
+
+
+def cmd_covers(args):
+    target, path = args.id, args.path
+    line = None
+    if ":" in target and target.rsplit(":", 1)[1].isdigit():
+        target, line = target.rsplit(":", 1)
+        line = int(line)
+    spec = _spec(path)
+    if spec is None:
+        return 2
+    ext = externals(spec)
+    rows, child_items, citations = covers(spec, ext, target, line)
+    found = set()
+    if rows:
+        print(f"rows whose refs name {target}:")
+        for it in sorted(rows, key=lambda i: (i.level, _idkey(i.id))):
+            print(f"  {it.id:10} L{it.level}  {it.title[:70]}")
+            found.add(it.id)
+    if citations:
+        print(f"citations in {target}" + (f" nearest line {line}" if line else "") + ":")
+        for n, rel, iid, fp in citations:
+            it = spec.items.get(iid)
+            state = ""
+            if it and fp:
+                state = "  (fingerprint current)" if spec.fingerprint(iid) == fp else f"  (ROW CHANGED since @{fp}; re-read, then scan --accept)"
+            print(f"  :{n} {rel} {iid:10} {(it.title[:60] if it else '(no such row)')}{state}")
+            if it:
+                found.add(iid)
+    if child_items:
+        print("child items naming it:")
+        for name, iid, title, rels in child_items:
+            print(f"  {name}:{iid}  {title[:50]}  ({rels})")
+    if not found and not child_items:
+        print(f"nothing names {target}: no row's refs, no citation in the file, no child item")
+        return 1
+    print("\nup-chain to the top:")
+    for iid in sorted(found, key=_idkey):
+        tree = upstream(spec, iid, ext)
+
+        def walk(node, indent):
+            nid, title, kids = node
+            print(f"{'  ' * indent}{nid} — {title}")
+            for kid in kids:
+                walk(kid, indent + 1)
+        walk(tree, 1)
+    return 0
+
+
+def cmd_scan(args):
+    spec = _spec(args.path)
+    if spec is None:
+        return 2
+    if args.accept:
+        n = accept_in_source(spec, args.id)
+        print(f"{args.id}: {n} citation(s) updated to current fingerprints")
+        return 0
+    index, unresolved = scan_sources(spec, args.id, name=args.name)
+    n_links = len(index["links"])
+    for rel, n, iid in unresolved:
+        print(f"{rel}:{n}: cites {iid}, which is not a row in {spec.name}", file=sys.stderr)
+    if args.output:
+        Path(args.output).write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+        print(f"wrote {args.output}: {len(index['items'])} file(s), {n_links} citation link(s), {len(unresolved)} unresolved; "
+              f"declare it in spec.yaml under children: - index: {args.output}")
+    else:
+        print(json.dumps(index, indent=2))
+    return 0 if not unresolved else 1
 
 
 def cmd_isolated(args):
@@ -653,7 +729,13 @@ def build_parser():
     add("why", cmd_why, "the upward tree from ID to the top: what it exists for", id_arg=True)
     s = add("how", cmd_how, "the downward tree from ID: what serves it, recursively (the mirror of why)", id_arg=True)
     s.add_argument("--depth", type=int, default=6, help="how many levels of means to show (default 6)")
-    add("orphans", cmd_orphans, "items that serve nothing and are not marked derived")
+    s = add("orphans", cmd_orphans, "items that serve nothing and are not marked derived")
+    s.add_argument("--suggested", action="store_true", help="instead: rows carrying 'Suggested parent (unrecorded in source): ...', as a promotable list")
+    s = add("covers", cmd_covers, "which rows and child items name a source PATH[:LINE] (refs, citations in the file, child indexes), and their up-chain", id_arg=True)
+    s = add("scan", cmd_scan, "turn spec:/spec-guard: citations in source files under DIR into a child index; --accept FILE rewrites that file's citations with current fingerprints", id_arg=True)
+    s.add_argument("--name", default="code", help="the child index's name (default: code)")
+    s.add_argument("-o", "--output", help="write the index here instead of stdout")
+    s.add_argument("--accept", action="store_true", help="instead of scanning DIR, treat it as a file and refresh its citations' fingerprints")
     add("isolated", cmd_isolated, "items with no link in either direction, by level: the settlement measure that only falls")
     add("questions", cmd_questions, "open questions (kind Q) by level, what each blocks, and which answers superseded the rest")
     add("outline", cmd_outline, "levels, files, items, and profile sections not yet present")
@@ -685,7 +767,7 @@ def build_parser():
     return p
 
 
-COMMANDS = ("check", "show", "serves", "why", "how", "orphans", "isolated", "questions", "outline", "export", "assumptions", "allocations", "accept", "drift", "review", "coupling", "interfaces", "init")
+COMMANDS = ("check", "show", "serves", "why", "how", "orphans", "covers", "scan", "isolated", "questions", "outline", "export", "assumptions", "allocations", "accept", "drift", "review", "coupling", "interfaces", "init")
 
 
 def main(argv=None):

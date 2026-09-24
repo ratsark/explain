@@ -128,3 +128,13 @@ refs: [tests/test_dogfood.py, spec]
 
 This spec checks with zero errors, no orphans, and no suspect links; every
 ARCHITECTURE.md section is cited by at least one row.
+
+## V10 — tests/test_covers.py
+status: adopted
+built: shipped
+verifies: [S21, S22, S23]
+part-of: D2
+refs: [tests/test_covers.py]
+
+A citation without a fingerprint is untracked; with one, it goes suspect
+when the row's design body changes, and `covers` says so on the line.

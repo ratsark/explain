@@ -113,6 +113,20 @@ of `spec/` on the owner's word.
 **Acceptance:** a level-by-level review of a real spec run with the user using
 the tool; the first project's agents use only the new tool.
 
+## Phase 4b — Code as the last child _(landed 2026-09-24)_
+
+The first project's audit found a third of its source files named by some
+row's `refs` and no source file naming a row. Landed: `covers PATH[:LINE]`
+(which rows govern a file, with their chain up), a documented citation form a
+source file may carry (`spec: S49, D30`, `spec-guard: S1`, each id optionally
+`@fingerprint`), `scan DIR` turning citations into a child index that the
+existing cross-spec drift then watches, `scan FILE --accept`, and
+`orphans --suggested` as the promotable list of unrecorded parents.
+
+**Acceptance:** met by `tests/test_covers.py`: a citation without a
+fingerprint is untracked; with one it goes suspect when the row's design
+body changes and `covers` says so on the line.
+
 ## Phase 5 — Dogfood _(complete 2026-09-13)_
 
 explain's own spec under `spec/`: mission and goals at L0, the format's

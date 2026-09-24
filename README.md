@@ -14,6 +14,7 @@ python3 -m explain G2 examples/cas         # what is G2
 python3 -m explain why D2 examples/cas     # the chain up to the goals, into the parent spec
 python3 -m explain how G1 examples/cas     # the tree of means below it
 python3 -m explain serves G1 examples/cas  # the re-evaluation sweep: everything that would need a second look
+python3 -m explain covers src/cas.py examples/cas  # which rows govern this file, and why
 ```
 
 Python 3.9+, standard library only. Copy the `explain/` directory into any

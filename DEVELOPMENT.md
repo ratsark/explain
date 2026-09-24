@@ -45,6 +45,10 @@ python3 -m explain serves G1 examples/cas         # everything downstream, trans
 python3 -m explain why D2 examples/cas            # the upward chain, into the parent spec
 python3 -m explain how G1 examples/cas            # the downward tree: what serves it (mirror of why)
 python3 -m explain orphans examples/cas
+python3 -m explain orphans --suggested examples/cas  # rows with a "Suggested parent (unrecorded in source)" note, promotable
+python3 -m explain covers src/cas.py:40 examples/cas  # which rows name this file/line (refs, spec: citations, child indexes) and their chain up
+python3 -m explain scan src -o code.index.json examples/cas   # spec:/spec-guard: citations in source files -> a child index (declare under children:)
+python3 -m explain scan src/cas.py --accept examples/cas      # rewrite that file's citations with the rows' current fingerprints
 python3 -m explain isolated examples/cas         # items with no link either way, by level
 python3 -m explain questions examples/cas        # open questions (kind Q), what each blocks
 python3 -m explain outline examples/cas           # levels, files, items, sections not yet present
